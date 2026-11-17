@@ -1,19 +1,29 @@
-# Build output
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# build output
+publish/
+out/
+dist/
 bin/
 obj/
-out/
 artifacts/
+*.nupkg
 
-# Local tooling
+# test evidence
+report.json
+*.png
+!docs/**/*.png
+
+# editors
+.idea/
 .vs/
 .vscode/
 *.user
 *.suo
-
-# Local runtime state
-.env
-*.log
-
-# OS metadata
-.DS_Store
-Thumbs.db
+*.swp
