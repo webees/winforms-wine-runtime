@@ -4,12 +4,16 @@
 .editorconfig
 .gitattributes
 *.md
-!src/**/*.md
 docs
 examples
 scripts
 Makefile
 report.json
+bench.json
+bench.txt
+evidence
+__pycache__
+*.sarif
 *.png
 bin
 obj

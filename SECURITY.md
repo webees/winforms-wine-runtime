@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-Only the latest minor release receives security fixes.
+Only the latest published minor release receives security fixes.
 
 | Version | Supported |
 |---|---|
-| 2.x | ✅ |
-| < 2.0 | ❌ |
+| 1.x | ✅ |
+| 2.x | not released yet |
+| < 1.0 | ❌ |
 
 ## Reporting a vulnerability
 

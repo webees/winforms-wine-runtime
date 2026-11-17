@@ -12,9 +12,9 @@ and allow long-lived connections; otherwise the page loads and the canvas stays
 black. It also needs to accept the self-signed certificate when `KASMVNC_SSL=1`,
 or you set `KASMVNC_SSL=0` and terminate TLS at the proxy.
 
-The web endpoint has no password unless `VNC_PASSWORD` is set. Because that is an
-obvious foot-gun, the entrypoint refuses to start without one unless you opt out
-explicitly:
+The web endpoint is protected by HTTP basic auth derived from `VNC_PASSWORD`.
+Because an open desktop is an obvious foot-gun, the entrypoint refuses to start
+without a password unless you opt out explicitly:
 
 ```bash
 # fails fast
@@ -81,6 +81,11 @@ volume or keep the old prefix and test first; a corrupted prefix shows up as
 missing `gdiplus.dll`, failing `Bitmap.Save()`, or applications that start once
 and then crash.
 
+`wineboot -u` only runs when `/wine/system.reg` is missing. The CJK font
+mappings and the MSVC DLLs are re-applied on every start, so a prefix created by
+an earlier build (1.x, or a previous 2.x image) is refreshed without deleting
+user data.
+
 ### Permissions
 
 The container runs as root because Wine writes throughout the prefix. Bind
@@ -96,7 +101,9 @@ docker run -v "$PWD/data:/data" ...
 ```yaml
 services:
   app:
-    image: ghcr.io/webees/winforms-wine-runtime:2
+    # The 2.x runtime is built locally with `make build`; build your own image
+    # from it and COPY the application into /app.
+    image: ghcr.io/webees/winforms-wine-runtime:dev
     ports: ["6901:6901"]
     environment:
       ENABLE_VNC: "1"

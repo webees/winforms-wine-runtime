@@ -21,7 +21,7 @@ updates:
         patterns: ['*']
 
   - package-ecosystem: nuget
-    directory: /src/self-test
+    directory: /src/SelfTest
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

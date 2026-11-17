@@ -19,7 +19,7 @@ ARG KASMVNC_VERSION=1.5.2
 
 FROM ${DOTNET_SDK_IMAGE} AS selftest-build
 WORKDIR /src
-COPY src/self-test/ ./
+COPY src/SelfTest/ ./
 RUN dotnet publish SelfTest.csproj -c Release -r win-x64 --self-contained true \
       -p:PublishSingleFile=false -o /out/app
 
@@ -72,20 +72,19 @@ ENV LANG=C.UTF-8 \
 
 # Distro packages, the SHA-256 pinned KasmVNC .deb, and the wineserver shim.
 RUN set -eu; \
+    # WebView2 ships an x64 runtime only, so any other arch yields a broken image.
+    [ "$TARGETARCH" = "amd64" ] || { \
+      echo "winforms-wine-runtime supports linux/amd64 only (got $TARGETARCH)" >&2; exit 1; }; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       ca-certificates curl unzip openssl tini \
-      wine wine64 xvfb xauth x11-utils \
+      wine wine64 xvfb xauth x11-utils iproute2 \
       fontconfig fonts-wqy-microhei fonts-droid-fallback \
       libgl1 libglx-mesa0 libegl1 libgles2 libvulkan1; \
     if [ "$KASMVNC_VIDEO" = "1" ]; then \
       apt-get install -y --no-install-recommends ffmpeg; \
     fi; \
-    case "$TARGETARCH" in \
-      amd64) sha=caaae8b563570cabed436914187b961f7b563f9e4473e3bb3b09d99e0fd3348d ;; \
-      arm64) sha=634f1e992ff625cb1245de206c7af96be67bea2aade89dfa5853f1c0a47c5fd1 ;; \
-      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
-    esac; \
+    sha=caaae8b563570cabed436914187b961f7b563f9e4473e3bb3b09d99e0fd3348d; \
     curl -fsSLo /tmp/kasmvnc.deb \
       "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_ubuntu_resolute_${KASMVNC_VERSION}_${TARGETARCH}.deb"; \
     printf '%s  %s\n' "$sha" /tmp/kasmvnc.deb | sha256sum -c -; \
@@ -93,7 +92,7 @@ RUN set -eu; \
     rm -f /tmp/kasmvnc.deb; \
     rm -rf /var/lib/apt/lists/*; \
     if [ "$WINE64_ONLY" = "1" ]; then rm -rf /usr/lib/*/wine/i386-windows; fi; \
-    srv=$(find /usr/lib -name wineserver -type f | head -n1); \
+    srv=$(find /usr/lib -name wineserver -type f -print -quit); \
     [ -n "$srv" ] || { echo "wineserver not found" >&2; exit 1; }; \
     ln -sf "$srv" /usr/local/bin/wineserver; \
     wineserver --version
@@ -166,5 +165,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD []
 
+# Test target: the runtime plus the self-test application. Only `make
+# build-demo`, CI and the benchmarks build this stage; it is never published.
 FROM base AS demo
 COPY --from=selftest-build /out/app /app
+
+# Default stage: the runtime with an empty /app, so a plain `docker build .`
+# (or `buildx build --push .` without --target) cannot ship an application.
+FROM base

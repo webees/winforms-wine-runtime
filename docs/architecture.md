@@ -6,7 +6,7 @@
 |---|---|---|
 | OS | Ubuntu 26.04 | Ships Wine 10; Wine 9 (24.04) cannot load .NET 8 assemblies |
 | Display | `Xkasmvnc :99` | One process owns the X server, encoder and web client |
-| Remote | KasmVNC 1.5 | WebP/JPEG per rectangle, optional WebCodecs H.264, HTTP basic auth |
+| Remote | KasmVNC 1.5.2 | WebP/JPEG per rectangle, optional WebCodecs H.264, HTTP basic auth |
 | Runtime | Wine 10, prefix at `/wine` | Runs `win-x64` self-contained .NET 8 |
 | Vendor | WebView2 Fixed Version, MSVC runtime, CJK fonts | Things Wine does not provide |
 | App | `/app` | Copied by the consumer image |
@@ -14,15 +14,20 @@
 ## Boot sequence
 
 1. `tini` reaps zombies and forwards signals.
-2. `entrypoint.sh` starts either `Xkasmvnc` (when `ENABLE_VNC=1`) or a plain
-   `Xvfb` (headless self-tests), then waits for `xdpyinfo` to succeed.
-3. If `/wine/system.reg` is missing, `wineboot -u` initialises the prefix, then
+2. When `ENABLE_VNC=1`, the entrypoint writes the password file from
+   `VNC_PASSWORD` and, unless `KASMVNC_SSL=0`, creates a self-signed
+   certificate under `/tmp/.kasmvnc`.
+3. `entrypoint.sh` starts either `Xkasmvnc` (desktop mode) or a plain `Xvfb`
+   (headless self-tests), then waits for `xdpyinfo` to succeed.
+4. If `/wine/system.reg` is missing, `wineboot -u` initialises the prefix and
    `wineserver -w` waits for the server to exit cleanly.
-4. When `ENABLE_VNC=1`, KasmVNC generates the password file from `VNC_PASSWORD`
-   and, unless `KASMVNC_SSL=0`, a self-signed certificate, then serves the web
-   client, the WebSocket and the desktop on `KASMVNC_PORT`.
-5. The entrypoint `exec`s Wine with the application, so the app is PID 2 and
-   receives signals from `tini`.
+5. `wine-setup.sh` runs on **every** start and idempotently re-applies the CJK
+   font mappings and the MSVC DLLs, so a prefix created by an older image picks
+   up the current runtime's changes. `wineserver -w` flushes the registry.
+6. The entrypoint links `C:\webview2` to `/opt/webview2` when the prefix does
+   not have it, resolves the executable (default: the first `*.exe` in `/app`,
+   sorted, ignoring `createdump.exe` and `*.vshost.exe`), then `exec`s
+   `wine <path>`, so the app is PID 2 and receives signals from `tini`.
 
 ## Why KasmVNC
 
@@ -39,14 +44,17 @@ The trade-offs are deliberate:
 - **Web client only.** Its protocol extensions are not compatible with generic
   VNC viewers.
 - **FFmpeg is optional.** The video path `dlopen()`s `libavcodec`; without the
-  runtime it silently falls back to WebP/JPEG. `KASMVNC_VIDEO=1` installs it.
+  runtime it silently falls back to WebP/JPEG. Build arg `KASMVNC_VIDEO=1`
+  (default) installs it.
 
 ## Build-time decisions
 
 **WebView2 Fixed Version, not Evergreen.** The Evergreen bootstrapper requires a
 real Windows service stack; it fails silently under Wine. The Fixed Version is a
-plain directory and is redirected with
-`WEBVIEW2_BROWSER_EXECUTABLE_FOLDER=C:\webview2`.
+plain directory. The image sets `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER=C:\webview2`
+as a hint, but Wine's loader ignores that variable: the application must pass
+the directory to `CoreWebView2Environment.CreateAsync` as
+`BrowserExecutableFolder`.
 
 **Version ceiling 135.0.3179.98.** Later runtimes start
 `msedgewebview2.exe` and a renderer but never finish navigation. This is

@@ -20,18 +20,30 @@ plat=()
 # OUT_DIR lets CI collect the evidence; otherwise a temporary directory is used.
 if [ -n "${OUT_DIR:-}" ]; then
   mkdir -p "$OUT_DIR"
+  OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 else
   OUT_DIR="$(mktemp -d)"
-  trap 'rm -rf "$OUT_DIR"' EXIT
+  cleanup() {
+    rm -rf "$OUT_DIR" 2>/dev/null ||
+      docker run --rm -u 0:0 --entrypoint sh -v "$OUT_DIR:/w" "$IMAGE" \
+        -c 'find /w -mindepth 1 -delete' >/dev/null 2>&1 || true
+  }
+  trap cleanup EXIT
 fi
 
 echo "==> running self-test in $IMAGE"
+rc=0
 docker run --rm ${plat[@]+"${plat[@]}"} \
   -v "$OUT_DIR:/data" \
   -e ENABLE_VNC=0 \
-  "$IMAGE" --selftest --strict --out 'Z:\data'
+  "$IMAGE" --selftest --strict --out 'Z:\data' || rc=$?
 
 echo "==> report"
+if [ ! -s "$OUT_DIR/report.json" ]; then
+  echo "self-test wrote no report.json (container exit $rc)" >&2
+  echo "check the image entrypoint and the Wine prefix" >&2
+  exit 1
+fi
 cat "$OUT_DIR/report.json"
 echo
 
@@ -49,6 +61,10 @@ if [ -n "${SUMMARY_FILE:-}" ]; then
 fi
 
 echo "==> ${passed}/${total} steps passed"
+if [ "$rc" -ne 0 ]; then
+  echo "self-test exited $rc" >&2
+  exit 1
+fi
 if [ "$ok" != "1" ] || [ "$passed" != "$total" ] || [ "$total" = "0" ]; then
   echo "self-test failed: report.json does not report every step as ok" >&2
   exit 1

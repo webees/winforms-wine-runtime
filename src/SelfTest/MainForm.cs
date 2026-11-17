@@ -15,8 +15,10 @@ internal sealed class MainForm : UIForm
     private readonly string _outDir;
     private readonly bool _selfTest;
     private readonly bool _strict;
-    private WebView2? _web;
-    private UIDataGridView? _grid;
+    private WebView2 _web = null!;
+    private CoreWebView2Environment? _webEnv;
+    private UIDataGridView _grid = null!;
+    private bool _running;
 
     public int ExitCode { get; private set; }
 
@@ -24,9 +26,7 @@ internal sealed class MainForm : UIForm
     {
         _selfTest = args.Contains("--selftest");
         _strict = args.Contains("--strict");
-        _outDir = ReadArg(args, "--out")
-                  ?? Environment.GetEnvironmentVariable("SELFTEST_OUT")
-                  ?? @"C:\out";
+        _outDir = ReadArg(args, "--out") ?? @"C:\out";
         Directory.CreateDirectory(_outDir);
 
         BuildUi();
@@ -101,36 +101,38 @@ internal sealed class MainForm : UIForm
         Controls.Add(header);
     }
 
-    private void SetRow(string step, string status, string detail)
-    {
-        if (_grid is null) return;
-        _grid.Rows.Add(step, status, detail);
-        _grid.FirstDisplayedScrollingRowIndex = _grid.Rows.Count - 1;
-    }
-
     private async Task RunSelfTestAsync()
     {
-        _grid?.Rows.Clear();
+        if (_running) return;
+        _running = true;
+        var startedAt = DateTimeOffset.Now.ToString("O");
+        var steps = new List<Dictionary<string, object?>>();
+        try
+        {
+            _grid.Rows.Clear();
+            await RunStepAsync(steps, "sunnyui", TestSunnyUiAsync);
+            await RunStepAsync(steps, "magick", TestMagickAsync);
+            await RunStepAsync(steps, "webview2", TestWebView2Async);
+            await RunStepAsync(steps, "webview2-shot", CaptureWebViewAsync);
+        }
+        finally
+        {
+            _running = false;
+        }
+
+        var failed = steps.Count(s => (bool)s["ok"]! == false);
         var report = new Dictionary<string, object?>
         {
-            ["startedAt"] = DateTimeOffset.Now.ToString("O"),
+            ["startedAt"] = startedAt,
             ["os"] = RuntimeInformation.OSDescription,
             ["runtime"] = RuntimeInformation.FrameworkDescription,
             ["arch"] = RuntimeInformation.ProcessArchitecture.ToString(),
             ["winePrefix"] = Environment.GetEnvironmentVariable("WINEPREFIX"),
-            ["steps"] = new List<Dictionary<string, object?>>()
+            ["steps"] = steps,
+            ["failed"] = failed,
+            ["ok"] = failed == 0,
+            ["finishedAt"] = DateTimeOffset.Now.ToString("O")
         };
-        var steps = (List<Dictionary<string, object?>>)report["steps"]!;
-
-        await RunStepAsync(steps, "sunnyui", TestSunnyUiAsync);
-        await RunStepAsync(steps, "magick", TestMagickAsync);
-        await RunStepAsync(steps, "webview2", TestWebView2Async);
-        await RunStepAsync(steps, "webview2-shot", CaptureWebViewAsync);
-
-        var failed = steps.Count(s => (bool)s["ok"]! == false);
-        report["failed"] = failed;
-        report["ok"] = failed == 0;
-        report["finishedAt"] = DateTimeOffset.Now.ToString("O");
 
         var path = Path.Combine(_outDir, "report.json");
         await File.WriteAllTextAsync(
@@ -172,12 +174,12 @@ internal sealed class MainForm : UIForm
             ["detail"] = detail,
             ["extra"] = extra
         });
-        SetRow(name, ok ? "PASS" : "FAIL", $"{sw.ElapsedMilliseconds} ms · {detail}");
+        _grid.Rows.Add(name, ok ? "PASS" : "FAIL", $"{sw.ElapsedMilliseconds} ms · {detail}");
+        _grid.FirstDisplayedScrollingRowIndex = _grid.Rows.Count - 1;
     }
 
     private Task<Dictionary<string, object?>> TestSunnyUiAsync()
     {
-        if (_grid is null) throw new InvalidOperationException("grid not created");
         var file = Path.Combine(_outDir, "sunnyui.png");
         using var bmp = new Bitmap(480, 240);
         using (var g = Graphics.FromImage(bmp))
@@ -189,10 +191,10 @@ internal sealed class MainForm : UIForm
         }
         bmp.Save(file, ImageFormat.Png);
 
-        var rows = _grid.Rows.Count;
         return Task.FromResult(new Dictionary<string, object?>
         {
-            ["rows"] = rows,
+            ["columns"] = _grid.Columns.Count,
+            ["rowHeight"] = _grid.RowTemplate.Height,
             ["file"] = file,
             ["bytes"] = new FileInfo(file).Length
         });
@@ -221,7 +223,6 @@ internal sealed class MainForm : UIForm
 
     private async Task<Dictionary<string, object?>> TestWebView2Async()
     {
-        if (_web is null) throw new InvalidOperationException("webview not created");
         var userData = Path.Combine(_outDir, "wv2-profile");
         Directory.CreateDirectory(userData);
 
@@ -230,7 +231,9 @@ internal sealed class MainForm : UIForm
         // "let the loader try", which is what fails.
         var browserFolder = Environment.GetEnvironmentVariable("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER");
         if (string.IsNullOrWhiteSpace(browserFolder)) browserFolder = null;
-        var env = await CoreWebView2Environment.CreateAsync(
+        // The environment can only be bound once per WebView2 instance. Reuse it
+        // so the "run self-test again" button does not fail on the second pass.
+        var env = _webEnv ??= await CoreWebView2Environment.CreateAsync(
             browserFolder, userData, new CoreWebView2EnvironmentOptions());
         await _web.EnsureCoreWebView2Async(env);
 
@@ -264,7 +267,7 @@ internal sealed class MainForm : UIForm
 
     private async Task<Dictionary<string, object?>> CaptureWebViewAsync()
     {
-        if (_web?.CoreWebView2 is null) throw new InvalidOperationException("webview not ready");
+        if (_web.CoreWebView2 is null) throw new InvalidOperationException("webview not ready");
         var file = Path.Combine(_outDir, "webview2.png");
         using var stream = new MemoryStream();
         var capture = _web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream);

@@ -1,5 +1,6 @@
 # Self-contained example: build the runtime + self-test app and serve the
-# desktop on https://localhost:6901 (self-signed certificate).
+# desktop on https://localhost:6901 (self-signed certificate). Set
+# KASMVNC_SSL=0 to serve plain HTTP when a proxy terminates TLS.
 #
 #   VNC_PASSWORD=change-me docker compose -f examples/docker-compose.yml up --build
 
@@ -11,12 +12,13 @@ services:
     image: winforms-wine-runtime:example
     container_name: winforms-wine-runtime
     ports:
-      - "6901:6901"
+      - "${KASMVNC_PORT:-6901}:${KASMVNC_PORT:-6901}"
     environment:
       ENABLE_VNC: "1"
       VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
-      SCREEN: 1600x900x24
-      KASMVNC_SSL: "1"
+      SCREEN: ${SCREEN:-1600x900x24}
+      KASMVNC_PORT: "${KASMVNC_PORT:-6901}"
+      KASMVNC_SSL: "${KASMVNC_SSL:-1}"
     volumes:
       - wine-prefix:/wine
       - app-data:/data

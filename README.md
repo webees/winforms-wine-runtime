@@ -47,12 +47,20 @@ password, and the self-test application appears on a 1600×900 desktop. Set
 `-e KASMVNC_SSL=0` when a TLS-terminating proxy sits in front of the container.
 
 The published GHCR package is the **runtime** — it contains no application. The
-`-demo` tag exists only for local verification and CI.
+`-demo` tag exists only for local verification and CI, and is the only build
+that adds the self-test app (`--target demo`); a plain `docker build .`
+produces the app-free runtime.
+
+> **Release status:** the 2.x KasmVNC runtime is not published yet. Build it
+> locally with `make build` (tag `ghcr.io/webees/winforms-wine-runtime:dev`);
+> the existing GHCR 1.x tags are the previous noVNC runtime and are not
+> compatible with the settings above. Publishing `v2.0.0` will add `:2`,
+> `:2.0` and `:2.0.0`.
 
 ## Use it for your own application
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2
+FROM ghcr.io/webees/winforms-wine-runtime:dev
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -92,8 +100,8 @@ to preserve per-user settings.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `APP` | first `*.exe` in `/app` | Executable to launch |
-| `APP_ARGS` | empty | Extra command-line arguments |
+| `APP` | first `*.exe` in `/app` | Executable to launch: a bare file name under `/app` or an absolute Linux path; Windows paths such as `C:\...` are rejected |
+| `APP_ARGS` | empty | Extra command-line arguments, split on whitespace (no quote handling) |
 | `SCREEN` | `1600x900x24` | Desktop geometry and colour depth |
 | `ENABLE_VNC` | `0` | `1` starts KasmVNC |
 | `VNC_PASSWORD` | empty | HTTP basic auth password, minimum 6 characters |
@@ -106,7 +114,11 @@ to preserve per-user settings.
 | `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | Dynamic JPEG/WebP quality floor and ceiling (0–9) |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`, `h264`, `h265`, `av1`, or a `*_vaapi` variant |
 | `KASMVNC_RECT_THREADS` | `0` | Encoder thread count, `0` = automatic |
-| `WEBVIEW2_USER_DATA_FOLDER` | unset | Override the WebView2 profile location |
+| `WEBVIEW2_USER_DATA_FOLDER` | unset | Not set by the image; applications should pass `userDataFolder` to `CreateAsync` (the self-test uses `Z:\data\wv2`) |
+
+Auto-detection scans only the top level of `/app` (not recursively) and skips
+runtime helpers such as `createdump.exe` and `*.vshost.exe`. Point `APP` at a
+subdirectory with a relative name, e.g. `sub/YourApp.exe`.
 
 ## WebView2: one required line of code
 
@@ -145,10 +157,6 @@ renderer but never complete navigation or the `postMessage` bridge. Do not bump
 | `webview2` | Chromium navigates, executes JS, `postMessage` round-trips |
 | `webview2-shot` | `CapturePreviewAsync` returns a non-empty PNG |
 
-![WinForms self-test](docs/images/selftest-sunnyui.png)
-![WebView2 in Wine](docs/images/selftest-webview2.png)
-![Magick.NET in Wine](docs/images/selftest-magick.png)
-
 Latest run (Ubuntu 26.04 / Wine 10.0 / WebView2 `135.0.3179.98`, 12 vCPU, no GPU):
 all four steps pass in 10–15 s; `webview2` accounts for most of it.
 
@@ -185,12 +193,12 @@ and never mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
 | `UBUNTU_VERSION` | `26.04` | Base distribution; 22.04 and 24.04 ship Wine 6.0 and 9.0, which cannot load .NET 8 |
 | `DOTNET_SDK_IMAGE` | `mcr.microsoft.com/dotnet/sdk:8.0` | Builds the self-test application |
 | `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version runtime, see the version policy above |
-| `KASMVNC_VERSION` | `1.5.2` | KasmVNC release, verified by SHA-256 |
+| `KASMVNC_VERSION` | `1.5.2` | KasmVNC release; the pinned SHA-256 only matches 1.5.2, so overriding it requires updating the checksum |
 | `KASMVNC_VIDEO` | `1` | Install FFmpeg for the WebCodecs H.264/H.265/AV1 path |
 | `WINE64_ONLY` | `1` | Drop 32-bit Wine (`i386-windows`, `syswow64`), about 1.2 GB |
 | `IMAGE_VERSION` | `0.0.0` | `org.opencontainers.image.version` label |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` label |
-| `TARGETARCH` | `amd64` | Architecture; BuildKit sets it for multi-arch builds |
+| `TARGETARCH` | `amd64` | Set by BuildKit; only `amd64` is accepted |
 
 ## Build locally
 
@@ -199,9 +207,13 @@ make build          # runtime + self-test targets
 make test           # run the self-test suite in a container
 make bench          # measure size, start-up, memory and write bench.json
 make score          # grade bench.json, exit non-zero below 90
+make baseline       # tracked files, lines and bytes plus the largest files
 make score-test     # unit tests for the scoring rubric
-make lint           # shellcheck, hadolint, actionlint, docs sync, score tests
+make lint           # shellcheck, hadolint, actionlint, action pins, docs sync, score tests
 ```
+
+On an arm64 host every target runs under QEMU emulation, which is supported but
+much slower; CI and production use native x86-64.
 
 ## Documentation
 
