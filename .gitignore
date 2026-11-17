@@ -19,6 +19,9 @@ artifacts/
 report.json
 *.png
 !docs/**/*.png
+evidence/
+bench.json
+bench.txt
 
 # editors
 .idea/
@@ -27,3 +30,6 @@ report.json
 *.user
 *.suo
 *.swp
+
+# python bytecode from scripts/
+__pycache__/

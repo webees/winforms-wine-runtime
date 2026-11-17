@@ -4,9 +4,33 @@
 
 1. Check the container is running: `docker ps`.
 2. Check health: `docker inspect --format '{{.State.Health.Status}}' <container>`.
-3. Read logs: `docker logs <container>`. `[entrypoint] starting Xvfb` must be
-   followed by `[entrypoint] starting noVNC`.
-4. If a proxy sits in front of `6080`, confirm WebSocket upgrade is allowed.
+3. Read logs: `docker logs <container>`. `[entrypoint] KasmVNC listening on`
+   must appear, and `/tmp/kasmvnc.log` inside the container holds the encoder
+   log.
+4. If a proxy sits in front of `6901`, confirm WebSocket upgrade is allowed and
+   that it accepts the self-signed certificate, or set `KASMVNC_SSL=0` and
+   terminate TLS at the proxy.
+
+## `KasmVNC failed to start`
+
+The entrypoint prints the last 40 lines of `/tmp/kasmvnc.log`. The common cause
+is a missing password file: set `VNC_PASSWORD`, or `KASMVNC_ALLOW_NO_AUTH=1`
+when an authenticating proxy is in front.
+
+## Video looks like JPEG instead of H.264
+
+The WebCodecs path needs `libavcodec` and only engages on large changed areas.
+Check what was loaded:
+
+```bash
+docker exec <container> ldconfig -p | grep libavcodec
+```
+
+A `libavcodec.so.62` line means the encoder can be `dlopen()`ed at runtime. The
+adapter is loaded lazily and is not logged; `/tmp/kasmvnc.log` only reports
+hardware acceleration (`... capability: none` is expected without `/dev/dri`).
+Rebuild with `--build-arg KASMVNC_VIDEO=1` (the default) if the library is
+missing.
 
 ## `WebView2 did not post 'ready' within 60 s`
 

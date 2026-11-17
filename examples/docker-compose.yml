@@ -1,5 +1,5 @@
 # Self-contained example: build the runtime + self-test app and serve the
-# desktop on http://localhost:6080/vnc.html
+# desktop on https://localhost:6901 (self-signed certificate).
 #
 #   VNC_PASSWORD=change-me docker compose -f examples/docker-compose.yml up --build
 
@@ -11,11 +11,12 @@ services:
     image: winforms-wine-runtime:example
     container_name: winforms-wine-runtime
     ports:
-      - "6080:6080"
+      - "6901:6901"
     environment:
       ENABLE_VNC: "1"
       VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
       SCREEN: 1600x900x24
+      KASMVNC_SSL: "1"
     volumes:
       - wine-prefix:/wine
       - app-data:/data

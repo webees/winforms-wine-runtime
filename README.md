@@ -8,17 +8,22 @@
 Run **.NET 8 WinForms** desktop applications — including **WebView2**, **SunnyUI** and
 **Magick.NET** — inside a Linux container, and reach them from any browser.
 
-The image is a thin, verified runtime: Wine 10, Xvfb, the WebView2 Fixed Version
-runtime, CJK font substitution, and the MSVC runtime Chromium needs. Your
-application is copied in as a self-contained `win-x64` publish output.
+The image is a thin, verified runtime: Wine 10, KasmVNC, the WebView2 Fixed
+Version runtime, CJK font substitution, and the MSVC runtime Chromium needs.
+Your application is copied in as a self-contained `win-x64` publish output.
 
 ```
-browser ── noVNC :6080 ──► x11vnc ──► Xvfb :99 ──► Wine 10 ──► YourApp.exe
-                                                          ├─ .NET 8 (self-contained)
-                                                          ├─ WebView2 Fixed Version 135
-                                                          ├─ SunnyUI
-                                                          └─ Magick.NET
+browser ── :6901 ──► Xkasmvnc :99 ──► Wine 10 ──► YourApp.exe
+                      (X server +          ├─ .NET 8 (self-contained)
+                       WebP/JPEG/H.264     ├─ WebView2 Fixed Version 135
+                       encoder + web UI)   ├─ SunnyUI
+                                           └─ Magick.NET
 ```
+
+One process owns the display, the encoder and the web client. There is no
+`Xvfb` + `x11vnc` + `websockify` chain on the desktop path: KasmVNC's X server
+encodes damage regions in C++, mixes WebP and JPEG per rectangle, and upgrades
+the media path to H.264 when FFmpeg and a large changed area make it worthwhile.
 
 ## Why
 
@@ -31,14 +36,15 @@ browser ── noVNC :6080 ──► x11vnc ──► Xvfb :99 ──► Wine 10
 
 ```bash
 make build-demo
-docker run --rm -p 6080:6080 \
+docker run --rm -p 6901:6901 \
   -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me \
   -v wine-prefix:/wine -v app-data:/data \
-  winforms-wine-runtime:dev-demo
+  ghcr.io/webees/winforms-wine-runtime:dev-demo
 ```
 
-Open <http://localhost:6080/vnc.html>, type the password, and the self-test
-application appears on a 1600×900 desktop.
+Open <https://localhost:6901>, accept the self-signed certificate, type the
+password, and the self-test application appears on a 1600×900 desktop. Set
+`-e KASMVNC_SSL=0` when a TLS-terminating proxy sits in front of the container.
 
 The published GHCR package is the **runtime** — it contains no application. The
 `-demo` tag exists only for local verification and CI.
@@ -46,7 +52,7 @@ The published GHCR package is the **runtime** — it contains no application. Th
 ## Use it for your own application
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:1
+FROM ghcr.io/webees/winforms-wine-runtime:2
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -54,7 +60,7 @@ ENV APP=YourApp.exe
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained true -o publish
 docker build -t your-app .
-docker run --rm -p 6080:6080 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
+docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 ```
 
 `APP` may be omitted when `/app` contains a single application `.exe`; runtime
@@ -64,12 +70,11 @@ helpers such as `createdump.exe` are ignored when guessing.
 
 | Port | Protocol | Default | Purpose |
 |---|---|---|---|
-| `6080` | TCP | published | noVNC web client (`/vnc.html`) |
-| `5900` | TCP | **loopback only** | native VNC, for debugging only |
+| `6901` | TCP | published | KasmVNC web client, WebSocket and desktop |
 
-Only `6080` is meant to be exposed. The VNC server binds `127.0.0.1` by default;
-changing `VNC_LISTEN` to another address requires `VNC_PASSWORD`, otherwise the
-container refuses to start. See [docs/ports-and-volumes.md](docs/ports-and-volumes.md).
+`6901` is the only port. `KASMVNC_LISTEN` defaults to `0.0.0.0`; the container
+refuses to start without `VNC_PASSWORD` unless `KASMVNC_ALLOW_NO_AUTH=1` is set
+explicitly. See [docs/ports-and-volumes.md](docs/ports-and-volumes.md).
 
 ## Persistence
 
@@ -89,12 +94,18 @@ to preserve per-user settings.
 |---|---|---|
 | `APP` | first `*.exe` in `/app` | Executable to launch |
 | `APP_ARGS` | empty | Extra command-line arguments |
-| `SCREEN` | `1600x900x24` | Xvfb geometry and colour depth |
-| `ENABLE_VNC` | `0` | `1` starts x11vnc + noVNC |
-| `VNC_PASSWORD` | empty | VNC password; required when `VNC_LISTEN` is not loopback |
-| `VNC_PORT` | `5900` | Native VNC port |
-| `NOVNC_PORT` | `6080` | Browser-facing port |
-| `VNC_LISTEN` | `127.0.0.1` | Address x11vnc binds |
+| `SCREEN` | `1600x900x24` | Desktop geometry and colour depth |
+| `ENABLE_VNC` | `0` | `1` starts KasmVNC |
+| `VNC_PASSWORD` | empty | HTTP basic auth password, minimum 6 characters |
+| `KASMVNC_PORT` | `6901` | Web client, WebSocket and desktop port |
+| `KASMVNC_LISTEN` | `0.0.0.0` | Address KasmVNC binds |
+| `KASMVNC_SSL` | `1` | `1` serves HTTPS with a self-signed certificate |
+| `KASMVNC_CERT` | empty | PEM with certificate and key, overrides the self-signed one |
+| `KASMVNC_ALLOW_NO_AUTH` | `0` | `1` allows an unauthenticated desktop |
+| `KASMVNC_FRAME_RATE` | `30` | Encoder frame rate ceiling |
+| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | Dynamic JPEG/WebP quality floor and ceiling (0–9) |
+| `KASMVNC_VIDEO_CODEC` | `auto` | `auto`, `h264`, `h265`, `av1`, or a `*_vaapi` variant |
+| `KASMVNC_RECT_THREADS` | `0` | Encoder thread count, `0` = automatic |
 | `WEBVIEW2_USER_DATA_FOLDER` | unset | Override the WebView2 profile location |
 
 ## WebView2: one required line of code
@@ -136,12 +147,13 @@ renderer but never complete navigation or the `postMessage` bridge. Do not bump
 
 ![WinForms self-test](docs/images/selftest-sunnyui.png)
 ![WebView2 in Wine](docs/images/selftest-webview2.png)
+![Magick.NET in Wine](docs/images/selftest-magick.png)
 
 Latest run (Ubuntu 26.04 / Wine 10.0 / WebView2 `135.0.3179.98`, 12 vCPU, no GPU):
-all four steps pass in 8.7 s; `webview2` accounts for 8.0 s of that.
+all four steps pass in 10–15 s; `webview2` accounts for most of it.
 
-CI runs this suite on every push and fails the build if `report.json` reports a
-failure.
+CI runs this suite plus `scripts/bench.sh` on every push and fails the build if
+`report.json` reports a failure or the score drops below 90.
 
 ## Limits
 
@@ -152,23 +164,43 @@ failure.
   a full x86-64 emulator; the project does not publish arm64 images.
 - **No GPU.** Rendering falls back to software unless you pass `/dev/dri` and
   change `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`.
-- **No Windows shell.** There is no Explorer, taskbar or IME in the container;
-  text entry uses the browser's input path or the clipboard.
+- **No Windows shell.** There is no Explorer or taskbar in the container. CJK
+  input relies on the KasmVNC client's IME mode, or on pasting text; it does not
+  go through a Windows IME.
+- **Web desktop only.** KasmVNC's web client is not compatible with generic VNC
+  viewers: the HTTP endpoint is the only supported entry point.
 
 ## Security
 
 The container executes arbitrary Windows code under Wine. Wine is **not** a
 sandbox: an application that escapes its UI can read the whole container
 filesystem. Treat each container as you would a desktop you do not trust —
-drop capabilities, keep it off the public internet except for `6080`, and never
-mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
+drop capabilities, publish only `6901`, keep TLS on (or terminate it in front),
+and never mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
+
+## Build arguments
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `UBUNTU_VERSION` | `26.04` | Base distribution; 22.04 and 24.04 ship Wine 6.0 and 9.0, which cannot load .NET 8 |
+| `DOTNET_SDK_IMAGE` | `mcr.microsoft.com/dotnet/sdk:8.0` | Builds the self-test application |
+| `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version runtime, see the version policy above |
+| `KASMVNC_VERSION` | `1.5.2` | KasmVNC release, verified by SHA-256 |
+| `KASMVNC_VIDEO` | `1` | Install FFmpeg for the WebCodecs H.264/H.265/AV1 path |
+| `WINE64_ONLY` | `1` | Drop 32-bit Wine (`i386-windows`, `syswow64`), about 1.2 GB |
+| `IMAGE_VERSION` | `0.0.0` | `org.opencontainers.image.version` label |
+| `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` label |
+| `TARGETARCH` | `amd64` | Architecture; BuildKit sets it for multi-arch builds |
 
 ## Build locally
 
 ```bash
 make build          # runtime + self-test targets
 make test           # run the self-test suite in a container
-make lint           # hadolint, shellcheck, actionlint
+make bench          # measure size, start-up, memory and write bench.json
+make score          # grade bench.json, exit non-zero below 90
+make score-test     # unit tests for the scoring rubric
+make lint           # shellcheck, hadolint, actionlint, docs sync, score tests
 ```
 
 ## Documentation
@@ -176,10 +208,12 @@ make lint           # hadolint, shellcheck, actionlint
 - [docs/architecture.md](docs/architecture.md) — layers, boot sequence, design decisions
 - [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — networking and persistence
 - [docs/troubleshooting.md](docs/troubleshooting.md) — known failures and fixes
+- [docs/benchmark.md](docs/benchmark.md) — measured baseline and scoring
 
 ## License
 
-MIT for this repository. Bundled components (Wine, WebView2 runtime, noVNC, fonts)
-keep their own licences — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+MIT for this repository. Bundled components (Wine, WebView2 runtime, KasmVNC,
+fonts) keep their own licences; **KasmVNC is GPL-2.0**, which matters when you
+redistribute the image — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 中文说明见 [README.zh-CN.md](README.zh-CN.md)。
