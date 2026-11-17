@@ -1,7 +1,7 @@
 # winforms-wine-runtime
 
 [![CI](https://github.com/webees/winforms-wine-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/webees/winforms-wine-runtime/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/webees/winforms-wine-runtime?sort=semver)](https://github.com/webees/winforms-wine-runtime/releases)
+[![Release](https://img.shields.io/github/v/release/webees/winforms-wine-runtime?sort=date)](https://github.com/webees/winforms-wine-runtime/releases)
 [![Image](https://img.shields.io/badge/ghcr.io-winforms--wine--runtime-blue)](https://github.com/webees/winforms-wine-runtime/pkgs/container/winforms-wine-runtime)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -36,6 +36,7 @@ the media path to H.264 when FFmpeg and a large changed area make it worthwhile.
 
 ```bash
 make build-demo
+# Local-only tag; the published runtime is a CalVer tag.
 docker run --rm -p 6901:6901 \
   -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me \
   -v wine-prefix:/wine -v app-data:/data \
@@ -49,18 +50,17 @@ password, and the self-test application appears on a 1600×900 desktop. Set
 The published GHCR package is the **runtime** — it contains no application. The
 `-demo` tag exists only for local verification and CI, and is the only build
 that adds the self-test app (`--target demo`); a plain `docker build .`
-produces the app-free runtime.
+produces the app-free runtime. `dev` and `dev-demo` are local-only tags and are
+never pushed.
 
-> **Release status:** the 2.x KasmVNC runtime is not published yet. Build it
-> locally with `make build` (tag `ghcr.io/webees/winforms-wine-runtime:dev`);
-> the existing GHCR 1.x tags are the previous noVNC runtime and are not
-> compatible with the settings above. Publishing `v2.0.0` will add `:2`,
-> `:2.0` and `:2.0.0`.
+> **Releases use CalVer:** `vYYYY.MM.DD` in Git, `YYYY.MM.DD` in GHCR. `2` and
+> `latest` are moving aliases; pin the exact date tag or a digest in production.
+> See [docs/versioning.md](docs/versioning.md).
 
 ## Use it for your own application
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:dev
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -196,7 +196,7 @@ and never mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC release; the pinned SHA-256 only matches 1.5.2, so overriding it requires updating the checksum |
 | `KASMVNC_VIDEO` | `1` | Install FFmpeg for the WebCodecs H.264/H.265/AV1 path |
 | `WINE64_ONLY` | `1` | Drop 32-bit Wine (`i386-windows`, `syswow64`), about 1.2 GB |
-| `IMAGE_VERSION` | `0.0.0` | `org.opencontainers.image.version` label |
+| `IMAGE_VERSION` | `dev` | `org.opencontainers.image.version` label |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` label |
 | `TARGETARCH` | `amd64` | Set by BuildKit; only `amd64` is accepted |
 
@@ -218,6 +218,7 @@ much slower; CI and production use native x86-64.
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md) — layers, boot sequence, design decisions
+- [docs/versioning.md](docs/versioning.md) — CalVer policy and release workflow
 - [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — networking and persistence
 - [docs/troubleshooting.md](docs/troubleshooting.md) — known failures and fixes
 - [docs/benchmark.md](docs/benchmark.md) — measured baseline and scoring

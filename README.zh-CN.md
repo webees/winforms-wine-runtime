@@ -16,6 +16,7 @@ Chromium 需要的 MSVC 运行库。业务程序以自包含 `win-x64` 发布产
 
 ```bash
 make build-demo
+# 仅本地标签；发布镜像是 CalVer 标签。
 docker run --rm -p 6901:6901 \
   -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me \
   -v wine-prefix:/wine -v app-data:/data \
@@ -28,17 +29,16 @@ docker run --rm -p 6901:6901 \
 > GHCR 上发布的是运行时镜像（`ghcr.io/webees/winforms-wine-runtime`），
 > 不含自检程序。`-demo` 标签只在本地构建，用于验证；只有
 > `--target demo` 会把自检程序加进去，直接 `docker build .` 得到的是不含
-> 任何应用的运行时。
+> 任何应用的运行时。`dev` 与 `dev-demo` 仅限本地，不会推送。
 
-> **发布状态：** 2.x KasmVNC 运行时尚未发布。先用 `make build` 在本地构建，
-> 标签为 `ghcr.io/webees/winforms-wine-runtime:dev`；GHCR 上现有的 1.x
-> 是旧的 noVNC 运行时，与本文参数不兼容。发布 `v2.0.0` 后会提供 `:2`、
-> `:2.0`、`:2.0.0`。
+> **版本采用 CalVer：** Git 标签为 `vYYYY.MM.DD`，GHCR 标签为
+> `YYYY.MM.DD`。`2` 与 `latest` 是移动别名；生产环境请固定具体日期标签或
+> digest。详见 [docs/versioning.md](docs/versioning.md)。
 
 ## 用自己的程序
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:dev
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -79,7 +79,7 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC 版本；SHA-256 只对 1.5.2 有效，覆盖版本需同步改校验值 |
 | `KASMVNC_VIDEO` | `1` | 安装 FFmpeg，提供 H.264/H.265/AV1 编码 |
 | `WINE64_ONLY` | `1` | 去掉 32 位 Wine（`i386-windows`、`syswow64`），约 1.2 GB |
-| `IMAGE_VERSION` | `0.0.0` | `org.opencontainers.image.version` 标签 |
+| `IMAGE_VERSION` | `dev` | `org.opencontainers.image.version` 标签 |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` 标签 |
 | `TARGETARCH` | `amd64` | 由 BuildKit 注入；只接受 `amd64` |
 
@@ -171,6 +171,7 @@ arm64 宿主机上所有目标都走 QEMU 模拟，可用但很慢；CI 与生�
 ## 文档
 
 - [docs/architecture.md](docs/architecture.md) — 分层、启动流程、构建决策
+- [docs/versioning.md](docs/versioning.md) — CalVer 版本规范与发布流程
 - [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — 端口与持久化
 - [docs/troubleshooting.md](docs/troubleshooting.md) — 已知故障与处理
 - [docs/benchmark.md](docs/benchmark.md) — 基线数据与评分口径
