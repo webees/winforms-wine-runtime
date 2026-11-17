@@ -12,6 +12,7 @@ out/
 dist/
 bin/
 obj/
+artifacts/
 *.nupkg
 
 # test evidence
@@ -21,5 +22,8 @@ report.json
 
 # editors
 .idea/
+.vs/
 .vscode/
+*.user
+*.suo
 *.swp
