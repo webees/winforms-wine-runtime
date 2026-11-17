@@ -16,7 +16,9 @@ die() { printf '[entrypoint] ERROR: %s\n' "$*" >&2; exit 1; }
 PIDS=()
 cleanup() {
   for pid in "${PIDS[@]:-}"; do
-    [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+    if [ -n "$pid" ]; then
+      kill "$pid" 2>/dev/null || true
+    fi
   done
 }
 trap cleanup EXIT INT TERM

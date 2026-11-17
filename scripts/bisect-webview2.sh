@@ -26,5 +26,7 @@ if docker run --rm -v "$OUT_DIR:/data" -e ENABLE_VNC=0 \
 fi
 
 echo "FAIL  $VERSION" >&2
-[ -f "$OUT_DIR/report.json" ] && cat "$OUT_DIR/report.json" >&2 || true
+if [ -f "$OUT_DIR/report.json" ]; then
+  cat "$OUT_DIR/report.json" >&2
+fi
 exit 1
