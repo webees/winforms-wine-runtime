@@ -101,6 +101,7 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | 动态 JPEG/WebP 质量下限与上限（0–9） |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`、`h264`、`h265`、`av1` 或对应的 `*_vaapi` |
 | `KASMVNC_RECT_THREADS` | `0` | 编码线程数，`0` 表示自动 |
+| `KASMVNC_PREFER_BANDWIDTH` | `0` | `1` 时牺牲画质换带宽（更低质量档、更强压缩） |
 | `WEBVIEW2_USER_DATA_FOLDER` | 空 | 镜像不设置；应用应自行向 `CreateAsync` 传 `userDataFolder`（自检程序用 `Z:\data\wv2`） |
 
 自动探测只扫描 `/app` 顶层（不递归），并跳过 `createdump.exe`、`*.vshost.exe`
@@ -173,6 +174,7 @@ arm64 宿主机上所有目标都走 QEMU 模拟，可用但很慢；CI 与生�
 - [docs/architecture.md](docs/architecture.md) — 分层、启动流程、构建决策
 - [docs/versioning.md](docs/versioning.md) — CalVer 版本规范与发布流程
 - [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — 端口与持久化
+- [docs/network-tuning.md](docs/network-tuning.md) — 延迟、TCP、MTU 与 KasmVNC 调优
 - [docs/troubleshooting.md](docs/troubleshooting.md) — 已知故障与处理
 - [docs/benchmark.md](docs/benchmark.md) — 基线数据与评分口径
 

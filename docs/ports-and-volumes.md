@@ -82,8 +82,10 @@ missing `gdiplus.dll`, failing `Bitmap.Save()`, or applications that start once
 and then crash.
 
 `wineboot -u` only runs when `/wine/system.reg` is missing. The CJK font
-mappings and the MSVC DLLs are re-applied on every start, so a prefix created by
-an earlier CalVer image is refreshed without deleting user data.
+mappings and the MSVC DLLs are re-applied only when the image fingerprint
+(`/etc/wfr-setup-id`) differs from the one stored in the prefix, so a prefix
+created by an earlier CalVer image is refreshed without deleting user data and
+an unchanged prefix skips the step.
 
 ### Permissions
 
@@ -121,6 +123,9 @@ volumes:
 
 `shm_size: 1gb` matters: Chromium allocates shared memory for its renderer and
 the default 64 MB `/dev/shm` causes renderer crashes or blank pages.
+The image also passes `--disable-dev-shm-usage` so it works with the default
+64 MB. Once `/dev/shm` is 1 GB, drop that flag from
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` to keep shared memory in tmpfs.
 
 Start with 1 CPU / 2 GiB requested and 2 CPU / 4 GiB as the limit. An idle
 session uses 200–300 MiB, but a WebView2 page with large images, or Magick.NET

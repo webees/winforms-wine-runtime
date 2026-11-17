@@ -68,7 +68,7 @@ ENV LANG=C.UTF-8 \
     KASMVNC_LISTEN=0.0.0.0 \
     KASMVNC_SSL=1 \
     WEBVIEW2_BROWSER_EXECUTABLE_FOLDER='C:\webview2' \
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-features=RendererCodeIntegrity,NetworkServiceSandbox'
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-features=RendererCodeIntegrity,NetworkServiceSandbox --disable-background-networking --disable-component-update --disable-domain-reliability --disable-sync --disable-breakpad --metrics-recording-only --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows'
 
 # Distro packages, the SHA-256 pinned KasmVNC .deb, and the wineserver shim.
 RUN set -eu; \
@@ -135,12 +135,18 @@ COPY docker/wine-setup.sh /usr/local/bin/wine-setup.sh
 # wineboot in the same build step.
 RUN set -eu; \
     chmod 0755 /usr/local/bin/wine-setup.sh; \
+    setup_id="$( { sha256sum /usr/local/bin/wine-setup.sh \
+        /usr/share/fonts/truetype/wqy/wqy-microhei.ttc \
+        /usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf; \
+      printf '%s\n' "${WEBVIEW2_VERSION}"; } | sha256sum | cut -d' ' -f1)"; \
     xvfb-run -a --server-args="-screen 0 1600x900x24 -nolisten tcp -ac" \
       wineboot -u >/tmp/wineboot.log 2>&1 || true; \
     wineserver -w; \
     if [ "$WINE64_ONLY" = "1" ]; then rm -rf /wine/drive_c/windows/syswow64; fi; \
     xvfb-run -a --server-args="-screen 0 1600x900x24 -nolisten tcp -ac" \
       /usr/local/bin/wine-setup.sh; \
+    printf '%s\n' "$setup_id" > /wine/.wfr-setup-id; \
+    printf '%s\n' "$setup_id" > /etc/wfr-setup-id; \
     wineserver -w; \
     ln -sfn /opt/webview2 /wine/drive_c/webview2; \
     test -f /wine/drive_c/windows/system32/gdiplus.dll; \
@@ -150,6 +156,8 @@ RUN set -eu; \
 COPY docker/entrypoint.sh docker/healthcheck.sh /usr/local/bin/
 RUN set -eu; \
     chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh; \
+    test "$(cat /etc/wfr-setup-id)" = "$(cat /wine/.wfr-setup-id)" || { \
+      echo "wfr-setup-id stamps diverged: prefix layer and image fingerprint disagree" >&2; exit 1; }; \
     mkdir -p /app /data
 
 WORKDIR /app

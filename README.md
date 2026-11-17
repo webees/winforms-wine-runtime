@@ -114,6 +114,7 @@ to preserve per-user settings.
 | `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | Dynamic JPEG/WebP quality floor and ceiling (0–9) |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`, `h264`, `h265`, `av1`, or a `*_vaapi` variant |
 | `KASMVNC_RECT_THREADS` | `0` | Encoder thread count, `0` = automatic |
+| `KASMVNC_PREFER_BANDWIDTH` | `0` | `1` trades quality for bandwidth (lower quality steps, more compression) |
 | `WEBVIEW2_USER_DATA_FOLDER` | unset | Not set by the image; applications should pass `userDataFolder` to `CreateAsync` (the self-test uses `Z:\data\wv2`) |
 
 Auto-detection scans only the top level of `/app` (not recursively) and skips
@@ -220,6 +221,7 @@ much slower; CI and production use native x86-64.
 - [docs/architecture.md](docs/architecture.md) — layers, boot sequence, design decisions
 - [docs/versioning.md](docs/versioning.md) — CalVer policy and release workflow
 - [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — networking and persistence
+- [docs/network-tuning.md](docs/network-tuning.md) — latency, TCP, MTU and KasmVNC tuning
 - [docs/troubleshooting.md](docs/troubleshooting.md) — known failures and fixes
 - [docs/benchmark.md](docs/benchmark.md) — measured baseline and scoring
 

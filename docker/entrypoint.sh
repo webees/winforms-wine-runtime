@@ -31,6 +31,11 @@ WINESERVER="${WINESERVER:-/usr/local/bin/wineserver}"
 CHILD=""
 log() { printf '[entrypoint] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
+require_uint() {
+  case "${2:-}" in
+    ''|*[!0-9]*) die "$1 must be a non-negative integer, got '${2:-}'" ;;
+  esac
+}
 cleanup() {
   if [ -n "$CHILD" ]; then
     kill "$CHILD" 2>/dev/null || true
@@ -83,13 +88,34 @@ prepare_cert() {
 }
 
 start_desktop() {
+  local frame_rate="${KASMVNC_FRAME_RATE:-30}"
+  local quality_min="${KASMVNC_QUALITY_MIN:-7}"
+  local quality_max="${KASMVNC_QUALITY_MAX:-8}"
+  local rect_threads="${KASMVNC_RECT_THREADS:-0}"
+  local prefer_bandwidth="${KASMVNC_PREFER_BANDWIDTH:-0}"
+  require_uint KASMVNC_PORT "$PORT"
+  require_uint KASMVNC_FRAME_RATE "$frame_rate"
+  require_uint KASMVNC_QUALITY_MIN "$quality_min"
+  require_uint KASMVNC_QUALITY_MAX "$quality_max"
+  require_uint KASMVNC_RECT_THREADS "$rect_threads"
+  [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ] ||
+    die "KASMVNC_PORT must be 1-65535, got '$PORT'"
+  [ "$frame_rate" -ge 1 ] || die "KASMVNC_FRAME_RATE must be at least 1"
+  [ "$quality_min" -le "$quality_max" ] && [ "$quality_max" -le 9 ] ||
+    die "KASMVNC_QUALITY_MIN/MAX must satisfy 0 <= MIN <= MAX <= 9"
+  case "$prefer_bandwidth" in
+    0|1) ;;
+    *) die "KASMVNC_PREFER_BANDWIDTH must be 0 or 1, got '$prefer_bandwidth'" ;;
+  esac
+
   local args=("$DISPLAY" -geometry "${width}x${height}" -depth "$depth"
     -interface "$LISTEN" -websocketPort "$PORT" -httpd /usr/share/kasmvnc/www
     -SecurityTypes None
-    -FrameRate "${KASMVNC_FRAME_RATE:-30}"
-    -DynamicQualityMin "${KASMVNC_QUALITY_MIN:-7}"
-    -DynamicQualityMax "${KASMVNC_QUALITY_MAX:-8}"
-    -RectThreads "${KASMVNC_RECT_THREADS:-0}"
+    -FrameRate "$frame_rate"
+    -DynamicQualityMin "$quality_min"
+    -DynamicQualityMax "$quality_max"
+    -RectThreads "$rect_threads"
+    -PreferBandwidth "$prefer_bandwidth"
     -videoCodec "${KASMVNC_VIDEO_CODEC:-auto}")
 
   if prepare_auth; then
@@ -116,6 +142,12 @@ start_desktop() {
     tail -n 40 "$LOG" >&2 || true
     die "KasmVNC failed to start"
   fi
+  for _ in $(seq 1 25); do
+    [ -n "$(ss -ltnH "sport = :${PORT}" 2>/dev/null)" ] && return 0
+    sleep 0.2
+  done
+  tail -n 40 "$LOG" >&2 || true
+  die "KasmVNC is not listening on port ${PORT}"
 }
 
 start_xvfb() {
@@ -132,12 +164,18 @@ if [ ! -f "${WINEPREFIX}/system.reg" ]; then
   wineboot -u >/tmp/wineboot-runtime.log 2>&1 || true
   "$WINESERVER" -w
 fi
-# Re-apply the CJK mappings and the MSVC DLLs on every start: a prefix created
-# by an older image is missing whatever the current image adds, and the script
-# is idempotent (copies with -f, registry writes with /f).
-/usr/local/bin/wine-setup.sh ||
-  die "wine prefix setup failed; remove or repair ${WINEPREFIX}"
-"$WINESERVER" -w
+# Re-run only when the image fingerprint changes; a stamp in the prefix keeps
+# restarts fast while still refreshing prefixes from older images.
+SETUP_ID="$(cat /etc/wfr-setup-id 2>/dev/null || echo dev)"
+if [ "$(cat "${WINEPREFIX}/.wfr-setup-id" 2>/dev/null || true)" != "$SETUP_ID" ]; then
+  log "applying wine prefix setup (${SETUP_ID})"
+  /usr/local/bin/wine-setup.sh ||
+    die "wine prefix setup failed; remove or repair ${WINEPREFIX}"
+  printf '%s\n' "$SETUP_ID" >"${WINEPREFIX}/.wfr-setup-id" || true
+  "$WINESERVER" -w
+else
+  log "wine prefix setup already applied"
+fi
 # The image links this at build time; recreate it when /wine comes from a volume.
 if [ ! -e "${WINEPREFIX}/drive_c/webview2" ] && [ ! -L "${WINEPREFIX}/drive_c/webview2" ]; then
   ln -sfn /opt/webview2 "${WINEPREFIX}/drive_c/webview2" ||

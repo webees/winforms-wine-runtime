@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `KASMVNC_PREFER_BANDWIDTH` lets the encoder trade quality for bytes on
+  metered or lossy links.
+- `docs/network-tuning.md` documents latency sources, host TCP settings, MTU
+  handling, reverse-proxy requirements and per-link presets.
+
+### Changed
+
+- WebView2 starts with background networking, component updates, sync,
+  crash reporting, first-run and background throttling disabled: no outbound
+  traffic the application did not ask for, and timers keep running while the
+  VNC tab is in the background.
+- The Wine prefix is re-provisioned only when the image fingerprint changes
+  instead of on every start. A registry import replaces eleven `wine reg add`
+  calls, and an unchanged prefix skips the step entirely.
+- Encoder settings are validated at startup instead of failing later inside
+  KasmVNC.
+
 ## [2026.11.17] - 2026-11-17
 
 First CalVer release, replacing the retired 1.x noVNC image.
