@@ -1,0 +1,93 @@
+# One pod = one desktop session. Scale with replicas, never with sessions
+# inside a pod: the Wine prefix and the WebView2 profile are single-writer.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: winforms-wine-prefix
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 4Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: winforms-app
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: winforms-app
+  template:
+    metadata:
+      labels:
+        app: winforms-app
+    spec:
+      securityContext:
+        # Wine writes across the prefix; runAsNonRoot is not compatible.
+        runAsUser: 0
+      containers:
+        - name: app
+          image: ghcr.io/webees/winforms-wine-runtime:1
+          env:
+            - name: ENABLE_VNC
+              value: "1"
+            - name: VNC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: winforms-app
+                  key: vnc-password
+          ports:
+            - name: novnc
+              containerPort: 6080
+          volumeMounts:
+            - name: prefix
+              mountPath: /wine
+            - name: data
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /vnc.html
+              port: novnc
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /vnc.html
+              port: novnc
+            initialDelaySeconds: 90
+            periodSeconds: 30
+      volumes:
+        - name: prefix
+          persistentVolumeClaim:
+            claimName: winforms-wine-prefix
+        - name: data
+          emptyDir: {}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: winforms-app
+spec:
+  selector:
+    app: winforms-app
+  ports:
+    - name: novnc
+      port: 6080
+      targetPort: novnc

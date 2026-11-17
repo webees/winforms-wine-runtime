@@ -1,0 +1,195 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: winforms-wine-runtime
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck --version
+          shellcheck docker/*.sh scripts/*.sh
+
+      - name: hadolint
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: Dockerfile
+          config: .hadolint.yaml
+          failure-threshold: warning
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2.2.0
+        with:
+          fail-on-error: true
+
+      - name: workflow hygiene
+        run: |
+          set -euo pipefail
+          status=0
+          # Every action must be pinned to a version tag, never a branch.
+          while IFS= read -r ref; do
+            case "$ref" in
+              *@v[0-9]*) ;;
+              *) echo "::error::unpinned action: $ref"; status=1 ;;
+            esac
+          done < <(grep -rhoE '^[[:space:]]*-[[:space:]]+uses:[[:space:]]+[^[:space:]]+' \
+            .github/workflows | awk '{print $NF}')
+          # No mutable branch refs in workflows.
+          if grep -rnE '^[[:space:]]*-[[:space:]]+uses:[[:space:]]+[^[:space:]]+@(master|main|develop)$' \
+            .github/workflows; then
+            echo "::error::mutable branch ref in uses:"; status=1
+          fi
+          exit $status
+
+  build:
+    name: build + self-test
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: build runtime target
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: base
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,scope=runtime,mode=max
+          build-args: |
+            IMAGE_VERSION=ci
+            SOURCE_REVISION=${{ github.sha }}
+
+      - name: build self-test target
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: demo
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:ci-demo
+          cache-from: type=gha,scope=runtime
+          build-args: |
+            IMAGE_VERSION=ci
+            SOURCE_REVISION=${{ github.sha }}
+
+      - name: image size budget
+        run: |
+          set -euo pipefail
+          base=$(docker image inspect "$IMAGE:ci" --format '{{.Size}}')
+          demo=$(docker image inspect "$IMAGE:ci-demo" --format '{{.Size}}')
+          printf 'base=%.2f GB demo=%.2f GB\n' \
+            "$(echo "$base" | awk '{print $1/1e9}')" "$(echo "$demo" | awk '{print $1/1e9}')"
+          # Guard against accidental inclusion of i386 Wine or a duplicated runtime.
+          test "$base" -lt 4500000000 || { echo "::error::base image exceeds 4.5 GB"; exit 1; }
+
+      - name: self-test
+        run: |
+          set -euo pipefail
+          IMAGE="$IMAGE:ci-demo" OUT_DIR="$PWD/evidence" ./scripts/selftest.sh
+
+      - name: noVNC smoke test
+        run: |
+          set -euo pipefail
+          docker run -d --name vnc-smoke -e ENABLE_VNC=1 -p 6080:6080 \
+            "$IMAGE:ci-demo" --selftest --out 'Z:\data'
+          ok=0
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:6080/vnc.html || true)
+            [ "$code" = "200" ] && { ok=1; break; }
+            sleep 2
+          done
+          docker logs vnc-smoke || true
+          docker rm -f vnc-smoke >/dev/null 2>&1 || true
+          [ "$ok" = "1" ] || { echo "::error::noVNC did not serve /vnc.html"; exit 1; }
+
+      - name: container hardening check
+        run: |
+          set -euo pipefail
+          # The image must not start without an application.
+          docker run --rm "$IMAGE:ci" >/tmp/noapp.log 2>&1 && {
+            echo "::error::image started with no application"; exit 1; } || true
+          grep -q 'no .exe found in /app' /tmp/noapp.log || {
+            echo "::error::missing guard for empty /app"; cat /tmp/noapp.log; exit 1; }
+
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-test-evidence
+          path: |
+            evidence/report.json
+            evidence/*.png
+          if-no-files-found: warn
+          retention-days: 7
+
+  scan:
+    name: scan
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: build for scan
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: base
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:scan
+          cache-from: type=gha,scope=runtime
+
+      - name: trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: upload sarif
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+
+      - name: fail on critical
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true

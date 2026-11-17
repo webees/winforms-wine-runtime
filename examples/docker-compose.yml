@@ -1,0 +1,29 @@
+# Self-contained example: build the runtime + self-test app and serve the
+# desktop on http://localhost:6080/vnc.html
+#
+#   VNC_PASSWORD=change-me docker compose -f examples/docker-compose.yml up --build
+
+services:
+  app:
+    build:
+      context: ..
+      target: demo
+    image: winforms-wine-runtime:example
+    container_name: winforms-wine-runtime
+    ports:
+      - "6080:6080"
+    environment:
+      ENABLE_VNC: "1"
+      VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
+      SCREEN: 1600x900x24
+    volumes:
+      - wine-prefix:/wine
+      - app-data:/data
+    # Chromium renderer needs more than the default 64 MB of shared memory.
+    shm_size: 1gb
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+volumes:
+  wine-prefix:
+  app-data:
