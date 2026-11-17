@@ -39,9 +39,8 @@ jobs:
           delete-ghost-images: true
           delete-partial-images: true
           keep-n-tagged: ${{ inputs.keep_tagged || 10 }}
-          # `latest` and the moveable major/minor tags survive. `2`/`2.0` are
-          # pre-seeded for the pending v2.0.0 release; append `3`/`3.0` later.
-          exclude-tags: latest,1,1.0,2,2.0
+          # Keep only the moving aliases; immutable CalVer tags age out.
+          exclude-tags: latest,2
           validate: false
           dry-run: ${{ inputs.dry_run || false }}
 
