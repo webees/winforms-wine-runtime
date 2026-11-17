@@ -2,13 +2,13 @@
 
 ## Supported versions
 
-Only the latest published minor release receives security fixes.
+Only the newest CalVer release receives security fixes.
 
 | Version | Supported |
 |---|---|
-| 1.x | ✅ |
-| 2.x | not released yet |
-| < 1.0 | ❌ |
+| `2026.11.17` (latest) | ✅ |
+| older CalVer releases | ❌ |
+| 1.x (retired noVNC image) | ❌ |
 
 ## Reporting a vulnerability
 

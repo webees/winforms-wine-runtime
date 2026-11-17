@@ -83,8 +83,7 @@ and then crash.
 
 `wineboot -u` only runs when `/wine/system.reg` is missing. The CJK font
 mappings and the MSVC DLLs are re-applied on every start, so a prefix created by
-an earlier build (1.x, or a previous 2.x image) is refreshed without deleting
-user data.
+an earlier CalVer image is refreshed without deleting user data.
 
 ### Permissions
 
@@ -101,9 +100,9 @@ docker run -v "$PWD/data:/data" ...
 ```yaml
 services:
   app:
-    # The 2.x runtime is built locally with `make build`; build your own image
-    # from it and COPY the application into /app.
-    image: ghcr.io/webees/winforms-wine-runtime:dev
+    # Pin a CalVer release; `2` and `latest` are moving aliases.
+    # Build your own image from it and COPY the application into /app.
+    image: ghcr.io/webees/winforms-wine-runtime:2026.11.17
     ports: ["6901:6901"]
     environment:
       ENABLE_VNC: "1"

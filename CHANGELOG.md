@@ -1,10 +1,14 @@
 # Changelog
 
 All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); releases use
+[CalVer](https://calver.org/) as `vYYYY.MM.DD`.
 
-## [2.0.0] - Unreleased
+## [Unreleased]
+
+## [2026.11.17] - 2026-11-17
+
+First CalVer release, replacing the retired 1.x noVNC image.
 
 ### Added
 
@@ -43,13 +47,13 @@ All notable changes to this project are documented here. The format follows
 - `scripts/selftest.sh`, `scripts/bench.sh` and `scripts/bisect-webview2.sh`
   take the target platform from `PLATFORM`; the archive default is
   `linux/amd64`.
-- Document that the 2.x KasmVNC image is not on GHCR yet; examples use the
-  locally built `:dev` tag until `v2.0.0` is released.
+- Publish immutable `YYYY.MM.DD` image tags with moving `2` and `latest`
+  aliases; `dev` and `dev-demo` remain local-only build tags.
 
 ### Fixed
 
-- `scripts/check-docs.sh` now rejects documentation that advertises an
-  unpublished image tag (`:2`, `:2.0`, `:2.0.0`) or a Windows path for `APP`.
+- `scripts/check-docs.sh` now rejects documentation that tells users to pull the
+  local `:dev` tag or a Windows path for `APP`, and checks the CalVer policy.
 - `scripts/selftest.sh` resolves a relative `OUT_DIR` before handing it to
   `docker run` and reports a missing `report.json` explicitly instead of
   failing inside `cat`.
@@ -59,7 +63,7 @@ All notable changes to this project are documented here. The format follows
   silently deleting every run when the input parses to `NaN`.
 - `.dockerignore` also excludes benchmark output, evidence directories and
   Python bytecode, so they cannot drift into the build context.
-- `SECURITY.md` lists 1.x as the supported line; 2.x is marked unreleased.
+- `SECURITY.md` lists the current CalVer release as the supported version.
 - Re-apply the CJK font mappings and MSVC DLLs on every start, so a `/wine`
   volume created by an older image is upgraded instead of silently keeping
   stale fonts and DLLs.
@@ -109,31 +113,5 @@ All notable changes to this project are documented here. The format follows
 - `x11vnc`, `noVNC` and `websockify` from the image.
 - `docs/images/` screenshots; the self-test table documents the same evidence.
 
-## [1.0.0] - 2026-11-17
-
-### Added
-
-- Runtime base image `ghcr.io/webees/winforms-wine-runtime` for `win-x64`
-  self-contained .NET 8 WinForms applications.
-- Wine 10 on Ubuntu 26.04, Xvfb, x11vnc and noVNC, with healthcheck.
-- WebView2 Fixed Version runtime 135.0.3179.98 exposed as `C:\webview2`, plus
-  the MSVC runtime Chromium requires.
-- CJK font substitution through `C:\windows\Fonts` and the `FontSubstitutes`
-  registry key.
-- `demo` target with a four-step self-test (`sunnyui`, `magick`, `webview2`,
-  `webview2-shot`) producing `report.json` and PNG evidence.
-- CI (lint, build, self-test, image scan), release workflow publishing to GHCR
-  with SBOM and provenance, and scheduled cleanup of workflow runs, artifacts
-  and package versions.
-- `WINE64_ONLY` build argument (default on) that removes `syswow64` and saves
-  about 1.2 GB.
-
-### Security
-
-- VNC binds loopback by default and refuses a non-loopback bind without
-  `VNC_PASSWORD`.
-- `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` documents `--no-sandbox` as a
-  requirement of Wine, not a convenience.
-
-[2.0.0]: https://github.com/webees/winforms-wine-runtime/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/webees/winforms-wine-runtime/releases/tag/v1.0.0
+[Unreleased]: https://github.com/webees/winforms-wine-runtime/compare/v2026.11.17...HEAD
+[2026.11.17]: https://github.com/webees/winforms-wine-runtime/releases/tag/v2026.11.17

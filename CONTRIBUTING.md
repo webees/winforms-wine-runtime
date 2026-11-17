@@ -49,5 +49,9 @@ docs: document /wine persistence across upgrades
 
 ## Release process
 
-Maintainers tag `vX.Y.Z`; the release workflow publishes
-`ghcr.io/webees/winforms-wine-runtime` with semver tags, SBOM and provenance.
+Releases use CalVer: tag `vYYYY.MM.DD` (UTC), or `vYYYY.MM.DD.N` for a same-day
+rebuild. Run `make version` to compute the next tag, move the changelog
+`Unreleased` entries under `## [YYYY.MM.DD] - YYYY-MM-DD`, then push the tag.
+The release workflow validates the tag, publishes the date tag plus the moving
+`2` and `latest` aliases, and attaches SBOM and provenance. `dev` and
+`dev-demo` are local tags and must never be published.

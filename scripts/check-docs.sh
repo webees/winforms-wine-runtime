@@ -130,15 +130,20 @@ for f in README.md README.zh-CN.md docs/ports-and-volumes.md examples/kubernetes
   grep -q "$image" "$f" || bad "$f does not reference the built image $image"
 done
 
-# The published tags are 1.0.0, 1.0, 1 and latest. 2.x is still unreleased, so
-# the docs must not point users at it. Drop 2.x from this list when v2.0.0 ships.
-unreleased='2|2\.0|2\.0\.0'
+# Published images use CalVer plus the moving `2` and `latest` aliases. `dev`
+# and `dev-demo` are local-only, and SemVer-style aliases are gone.
 for f in README.md README.zh-CN.md docs/*.md examples/*.yml examples/*.yaml; do
   [ -f "$f" ] || continue
-  if grep -nE "${image//./\\.}:(${unreleased})([^0-9.]|$)" "$f" >/dev/null; then
-    bad "$f references an unpublished image tag (see CHANGELOG.md)"
+  if grep -nE "${image//./\\.}:dev([^0-9A-Za-z-]|$)" "$f" >/dev/null; then
+    bad "$f presents the local-only :dev tag as a published image"
+  fi
+  if grep -nE "${image//./\\.}:(1|1\.0|1\.0\.0|2\.0|2\.0\.0)([^0-9.]|$)" "$f" >/dev/null; then
+    bad "$f references a retired SemVer image tag"
   fi
 done
+
+[ -f docs/versioning.md ] || bad "docs/versioning.md is missing"
+grep -q 'vYYYY.MM.DD' docs/versioning.md || bad "docs/versioning.md does not document CalVer"
 
 # APP takes a bare filename under /app or an absolute Linux path. A Windows
 # path cannot be resolved before Wine starts, so never advertise one.

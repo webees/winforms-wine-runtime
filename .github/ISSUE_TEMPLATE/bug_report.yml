@@ -24,7 +24,7 @@ body:
     id: image
     attributes:
       label: Image tag
-      placeholder: ghcr.io/webees/winforms-wine-runtime:dev
+      placeholder: ghcr.io/webees/winforms-wine-runtime:2026.11.17
     validations:
       required: true
   - type: dropdown

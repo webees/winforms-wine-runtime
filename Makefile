@@ -3,7 +3,7 @@ TAG ?= dev
 PLATFORM ?= linux/amd64
 BUILD_ARGS ?=
 
-.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint shellcheck hadolint actionlint push clean
+.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint shellcheck hadolint actionlint version version-check push clean
 
 help:
 	@printf '%s\n' \
@@ -15,10 +15,12 @@ help:
 	  '  bench        measure image, start time, memory; write bench.json' \
 	  '  score        grade bench.json against docs/benchmark.md' \
 	  '  docs-check   fail when code and docs disagree' \
+	  '  version      print the next CalVer tag for today (UTC)' \
+	  '  version-check validate TAG as CalVer' \
 	  '  baseline     tracked file, line and byte totals plus the largest files' \
 	  '  score-test   unit tests for the scoring rubric' \
 	  '  lint         shellcheck + hadolint + actionlint + workflow, docs and score checks' \
-	  '  push         push $(IMAGE):$(TAG) for $(PLATFORM)' \
+	  '  push         push $(IMAGE):$(TAG) (CalVer only) for $(PLATFORM)' \
 	  '  clean        remove local images built here'
 
 build: build-base build-demo
@@ -55,6 +57,12 @@ pins-check:
 score-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_score.py
 
+version:
+	@./scripts/version.sh next
+
+version-check:
+	@./scripts/version.sh check "$(TAG)"
+
 shellcheck:
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  shellcheck -x docker/*.sh scripts/*.sh; \
@@ -81,6 +89,8 @@ actionlint:
 	fi
 
 push:
+	@./scripts/version.sh check "$(TAG)" >/dev/null || {
+	  printf '%s\n' "refusing to push TAG=$(TAG): use a CalVer release tag" >&2; exit 1; }
 	docker buildx build --platform $(PLATFORM) --target base \
 	  --build-arg IMAGE_VERSION=$(TAG) --provenance=mode=max --sbom=true \
 	  -t $(IMAGE):$(TAG) --push .

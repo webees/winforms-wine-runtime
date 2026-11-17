@@ -41,11 +41,11 @@ spec:
         runAsUser: 0
       containers:
         - name: app
-          # Locally built runtime image (`make build-base`): it holds Wine,
-          # KasmVNC and WebView2 but no application. Build your own image as
-          # `FROM ghcr.io/webees/winforms-wine-runtime:dev` plus `COPY publish/ /app`.
+          # Published runtime image: it holds Wine, KasmVNC and WebView2 but no
+          # application. Build your own image `FROM` the same CalVer tag plus
+          # `COPY publish/ /app`.
           # As written the pod cannot start: the runtime contains no /app.
-          image: ghcr.io/webees/winforms-wine-runtime:dev
+          image: ghcr.io/webees/winforms-wine-runtime:2026.11.17
           env:
             - name: ENABLE_VNC
               value: "1"

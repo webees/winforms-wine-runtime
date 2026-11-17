@@ -2,11 +2,11 @@ name: Release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to publish, e.g. v1.0.0
+        description: Existing CalVer tag, e.g. v2026.11.17
         required: true
 
 concurrency:
@@ -39,16 +39,13 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ inputs.tag || github.ref_name }}"
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "::error::tag '$tag' is not vX.Y.Z"; exit 1; }
-          version="${tag#v}"
-          # CHANGELOG must already describe this version.
-          heading=$(grep -m1 "^## \[$version\]" CHANGELOG.md || true)
-          [ -n "$heading" ] || {
-            echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
-          case "$heading" in
-            *Unreleased*) echo "::error::CHANGELOG.md still marks $version as Unreleased"; exit 1 ;;
-          esac
+          version="$(./scripts/version.sh check "$tag")"
+          release_date="$(printf '%s' "$version" | cut -d. -f1-3 | tr . -)"
+          heading="## [$version] - $release_date"
+          grep -Fq "$heading" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md needs '$heading'"; exit 1; }
+          git merge-base --is-ancestor "$tag" origin/main || {
+            echo "::error::$tag is not on main"; exit 1; }
           {
             echo "tag=$tag"
             echo "version=$version"
@@ -82,14 +79,14 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=${{ needs.verify.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.tag }}
-            type=semver,pattern={{major}},value=${{ needs.verify.outputs.tag }}
-            type=raw,value=latest,enable=${{ !contains(needs.verify.outputs.version, '-') }}
+            type=raw,value=${{ needs.verify.outputs.version }}
+            type=raw,value=2
+            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=winforms-wine-runtime
             org.opencontainers.image.description=Run .NET 8 WinForms + WebView2 + SunnyUI + Magick.NET in Linux containers
             org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ needs.verify.outputs.version }}
 
       - id: build
         name: build and push

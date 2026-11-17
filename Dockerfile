@@ -43,7 +43,7 @@ ARG KASMVNC_VIDEO=1
 # Build with --build-arg WINE64_ONLY=0 if the application ships 32-bit native
 # dependencies or a 32-bit installer.
 ARG WINE64_ONLY=1
-ARG IMAGE_VERSION=0.0.0
+ARG IMAGE_VERSION=dev
 ARG SOURCE_REVISION=unknown
 
 LABEL org.opencontainers.image.title="winforms-wine-runtime" \
