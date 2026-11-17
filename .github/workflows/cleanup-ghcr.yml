@@ -1,0 +1,56 @@
+name: Cleanup GHCR
+
+# Keeps the container package tidy: untagged manifests (every multi-stage build
+# and every failed push leaves one) are deleted, and only a bounded number of
+# tagged versions is retained.
+on:
+  schedule:
+    - cron: '37 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      keep_tagged:
+        description: Number of tagged versions to keep
+        default: '10'
+        required: false
+      dry_run:
+        description: Report only, do not delete
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cleanup-ghcr
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: prune
+    runs-on: ubuntu-24.04
+    steps:
+      - name: delete untagged and old tagged versions
+        uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          package: winforms-wine-runtime
+          delete-untagged: true
+          delete-ghost-images: true
+          delete-partial-images: true
+          keep-n-tagged: ${{ inputs.keep_tagged || 10 }}
+          # Release tags are never pruned; only moveable tags are candidates.
+          exclude-tags: latest,1,1.0,main
+          validate: false
+          dry-run: ${{ inputs.dry_run || false }}
+
+      - name: summary
+        run: |
+          {
+            echo "### GHCR cleanup"
+            echo ""
+            echo "- package: \`winforms-wine-runtime\`"
+            echo "- keep tagged: ${{ inputs.keep_tagged || 10 }}"
+            echo "- untagged manifests: deleted"
+            echo "- dry run: ${{ inputs.dry_run || false }}"
+          } >> "$GITHUB_STEP_SUMMARY"

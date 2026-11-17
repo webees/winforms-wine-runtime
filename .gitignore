@@ -1,0 +1,25 @@
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# build output
+publish/
+out/
+dist/
+bin/
+obj/
+*.nupkg
+
+# test evidence
+report.json
+*.png
+!docs/**/*.png
+
+# editors
+.idea/
+.vscode/
+*.swp

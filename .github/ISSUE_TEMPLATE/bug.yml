@@ -1,0 +1,42 @@
+name: Bug report
+description: The image does not behave as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: run `docker run --rm --entrypoint /bin/bash <image> -lc 'wine --version; ls -l /opt/webview2/msedge.dll'`
+        and check `docs/troubleshooting.md`.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact command you ran.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: image
+    attributes:
+      label: Image tag
+      placeholder: ghcr.io/webees/winforms-wine-runtime:1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host platform
+      options: [linux/amd64, linux/arm64 (unsupported), macOS Docker Desktop, OrbStack, Kubernetes, other]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `docker logs <container>` and `report.json` when available.
+      render: shell

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/webees/winforms-wine-runtime/security/advisories/new
+    about: Report privately, not in a public issue.
+  - name: Wine compatibility
+    url: https://wiki.winehq.org/
+    about: Windows API gaps are usually upstream Wine issues.

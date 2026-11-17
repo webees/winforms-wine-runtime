@@ -1,0 +1,12 @@
+failure-threshold: warning
+ignored:
+  # Base image is tracked by tag on purpose: Ubuntu does not publish a stable
+  # digest for interim releases, and dependabot follows the tag.
+  - DL3006
+  # apt packages are not version-pinned; the base tag defines the snapshot.
+  - DL3008
+  # The container intentionally runs as root: Wine writes across the prefix.
+  - DL3002
+override:
+  error:
+    - DL3025

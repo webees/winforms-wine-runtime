@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish, e.g. v1.0.0
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  verify:
+    name: verify tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      revision: ${{ steps.meta.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - id: meta
+        name: resolve version
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::tag '$tag' is not vX.Y.Z"; exit 1; }
+          version="${tag#v}"
+          # CHANGELOG must already describe this version.
+          grep -q "^## \[$version\]" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "revision=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: publish image
+    runs-on: ubuntu-24.04
+    needs: [verify, test]
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.verify.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.verify.outputs.tag }}
+            type=raw,value=latest,enable=${{ !contains(needs.verify.outputs.version, '-') }}
+          labels: |
+            org.opencontainers.image.title=winforms-wine-runtime
+            org.opencontainers.image.description=Run .NET 8 WinForms + WebView2 + SunnyUI + Magick.NET in Linux containers
+            org.opencontainers.image.licenses=MIT
+
+      - id: build
+        name: build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: base
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=runtime
+          build-args: |
+            IMAGE_VERSION=${{ needs.verify.outputs.version }}
+            SOURCE_REVISION=${{ needs.verify.outputs.revision }}
+
+      - name: release notes
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          awk -v v="$version" '
+            $0 ~ "^## \\["v"\\]" {flag=1; next}
+            flag && /^## \[/ {exit}
+            flag {print}
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Release $version" > notes.md
+          echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.verify.outputs.tag }}
+          name: ${{ needs.verify.outputs.tag }}
+          body_path: notes.md
+          draft: false
+          generate_release_notes: false
+
+  test:
+    name: self-test release
+    runs-on: ubuntu-24.04
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: build self-test target at the released tag
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: demo
+          platforms: linux/amd64
+          load: true
+          tags: winforms-wine-runtime:release-check
+          cache-from: type=gha,scope=runtime
+          build-args: |
+            IMAGE_VERSION=${{ needs.verify.outputs.version }}
+            SOURCE_REVISION=${{ needs.verify.outputs.revision }}
+
+      - name: run self-test
+        run: |
+          set -euo pipefail
+          IMAGE=winforms-wine-runtime:release-check OUT_DIR="$PWD/evidence" \
+            ./scripts/selftest.sh
+
+  attest:
+    name: attest
+    runs-on: ubuntu-24.04
+    needs: [verify, publish]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: attest image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          push-to-registry: true
