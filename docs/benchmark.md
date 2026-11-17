@@ -60,8 +60,8 @@ KasmVNC 1.5.2 / WebView2 135.0.3179.98, demo image:
 | Metric | Baseline | Notes |
 |---|---|---|
 | Image size | 2.58 GiB | `du -sbx /`, `WINE64_ONLY=1`, `KASMVNC_VIDEO=1` |
-| Cold start | ~1 s | until authenticated HTTP 200 |
-| First window | ~7 s | Xvfb + Wine + first WinForms window; the WebView2 step follows |
+| Cold start | ~1 s | until authenticated HTTP 200; warm page cache |
+| First window | 2–7 s | Xvfb + Wine + first WinForms window; depends on page cache |
 | Idle memory | 200–300 MiB | KasmVNC + Wine + idle self-test; the full-mark ceiling is 350 MiB |
 | Self-test | 4/4, 10–15 s | `webview2` dominates |
 | Score | 100/100 (A) | |
@@ -72,10 +72,10 @@ KasmVNC 1.5.2 / WebView2 135.0.3179.98, demo image:
 
 | Metric | Value |
 |---|---|
-| Tracked files | 44 |
-| Lines | ~3.6 k |
-| Bytes | ~136 KB |
-| Largest file | `src/SelfTest/MainForm.cs` (~11 KB) |
+| Tracked files | 49 |
+| Lines | ~4.0 k |
+| Bytes | ~152 KB |
+| Largest file | `README.md` (~11 KB) |
 
 Numbers vary with host CPU, page cache and image storage; compare within one
 host, not across machines.

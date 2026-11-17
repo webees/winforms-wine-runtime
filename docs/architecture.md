@@ -21,9 +21,12 @@
    (headless self-tests), then waits for `xdpyinfo` to succeed.
 4. If `/wine/system.reg` is missing, `wineboot -u` initialises the prefix and
    `wineserver -w` waits for the server to exit cleanly.
-5. `wine-setup.sh` runs on **every** start and idempotently re-applies the CJK
-   font mappings and the MSVC DLLs, so a prefix created by an older image picks
-   up the current runtime's changes. `wineserver -w` flushes the registry.
+5. `wine-setup.sh` is idempotent but guarded by a fingerprint: the build writes
+   a hash of the setup script, CJK fonts and WebView2 version to
+   `/etc/wfr-setup-id`, and the entrypoint re-applies the CJK font mappings and
+   the MSVC DLLs only when the prefix's `.wfr-setup-id` differs. A prefix
+   created by an older image is refreshed; an unchanged prefix skips the step.
+   `wineserver -w` flushes the registry after a re-apply.
 6. The entrypoint links `C:\webview2` to `/opt/webview2` when the prefix does
    not have it, resolves the executable (default: the first `*.exe` in `/app`,
    sorted, ignoring `createdump.exe` and `*.vshost.exe`), then `exec`s
