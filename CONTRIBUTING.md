@@ -2,13 +2,14 @@
 
 ## Development setup
 
-Requirements: Docker 24+ with BuildKit, `make`, and (for linting) `shellcheck`,
-`hadolint` and `actionlint`.
+Requirements: Docker 24+, `make`, and (for linting) `shellcheck`, `hadolint`
+and `actionlint`. `make build` works with either builder; `make push` needs
+`docker buildx`.
 
 ```bash
 make build      # build runtime and self-test images
 make test       # run the self-test suite
-make lint       # dockerfile + shell + workflow lint
+make lint       # shell + dockerfile + workflow lint, docs sync check
 ```
 
 Building takes 6–8 minutes on 8 vCPU; the Wine prefix and WebView2 runtime
@@ -41,7 +42,7 @@ layers are cached afterwards.
 Conventional Commits, for example:
 
 ```
-feat(vnc): require a password for non-loopback binds
+feat(vnc): serve the desktop on all interfaces by default
 fix(entrypoint): wait for Xvfb instead of sleeping
 docs: document /wine persistence across upgrades
 ```

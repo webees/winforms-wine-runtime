@@ -40,7 +40,7 @@ jobs:
           delete-partial-images: true
           keep-n-tagged: ${{ inputs.keep_tagged || 10 }}
           # Release tags are never pruned; only moveable tags are candidates.
-          exclude-tags: latest,1,1.0,main
+          exclude-tags: latest,1,1.0,2,2.0,main
           validate: false
           dry-run: ${{ inputs.dry_run || false }}
 

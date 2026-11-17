@@ -5,8 +5,8 @@
 | Layer | Contents | Reason |
 |---|---|---|
 | OS | Ubuntu 26.04 | Ships Wine 10; Wine 9 (24.04) cannot load .NET 8 assemblies |
-| Display | Xvfb `:99` | No GPU, no desktop environment; a fixed 1600×900 surface |
-| Remote | x11vnc + noVNC | Browser-native access, no client install |
+| Display | `Xkasmvnc :99` | One process owns the X server, encoder and web client |
+| Remote | KasmVNC 1.5 | WebP/JPEG per rectangle, optional WebCodecs H.264, HTTP basic auth |
 | Runtime | Wine 10, prefix at `/wine` | Runs `win-x64` self-contained .NET 8 |
 | Vendor | WebView2 Fixed Version, MSVC runtime, CJK fonts | Things Wine does not provide |
 | App | `/app` | Copied by the consumer image |
@@ -14,13 +14,32 @@
 ## Boot sequence
 
 1. `tini` reaps zombies and forwards signals.
-2. `entrypoint.sh` starts Xvfb and waits for `xdpyinfo` to succeed.
+2. `entrypoint.sh` starts either `Xkasmvnc` (when `ENABLE_VNC=1`) or a plain
+   `Xvfb` (headless self-tests), then waits for `xdpyinfo` to succeed.
 3. If `/wine/system.reg` is missing, `wineboot -u` initialises the prefix, then
    `wineserver -w` waits for the server to exit cleanly.
-4. When `ENABLE_VNC=1`, x11vnc binds `VNC_LISTEN:VNC_PORT` and websockify
-   bridges `NOVNC_PORT` to it.
+4. When `ENABLE_VNC=1`, KasmVNC generates the password file from `VNC_PASSWORD`
+   and, unless `KASMVNC_SSL=0`, a self-signed certificate, then serves the web
+   client, the WebSocket and the desktop on `KASMVNC_PORT`.
 5. The entrypoint `exec`s Wine with the application, so the app is PID 2 and
    receives signals from `tini`.
+
+## Why KasmVNC
+
+`Xvfb` + `x11vnc` + `noVNC` is four processes and frames every changed rectangle
+as an independent JPEG, decoded in JavaScript. KasmVNC encodes in C++ across
+worker threads, picks WebP or JPEG per rectangle, tracks damage instead of
+polling, and can switch large changed areas to H.264 through WebCodecs. On a
+public link the difference is bandwidth and loss tolerance, not peak RTT.
+
+The trade-offs are deliberate:
+
+- **GPL-2.0.** Redistributing an image that contains KasmVNC carries GPL
+  obligations; see `THIRD-PARTY-NOTICES.md`.
+- **Web client only.** Its protocol extensions are not compatible with generic
+  VNC viewers.
+- **FFmpeg is optional.** The video path `dlopen()`s `libavcodec`; without the
+  runtime it silently falls back to WebP/JPEG. `KASMVNC_VIDEO=1` installs it.
 
 ## Build-time decisions
 
@@ -61,7 +80,7 @@ layer finishes corrupts the prefix in a way that only shows up later as
 `Bitmap.Save()` failing with a generic GDI+ error.
 
 **`WINE64_ONLY=1` by default.** Removing `i386-windows` and `syswow64` saves
-about 1.6 GB and does not affect `win-x64` .NET applications.
+about 1.2 GB and does not affect `win-x64` .NET applications.
 
 ## Runtime model
 

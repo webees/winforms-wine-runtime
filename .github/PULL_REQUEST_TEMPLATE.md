@@ -13,6 +13,7 @@
 - [ ] `make lint`
 - [ ] `make build`
 - [ ] `make test` (required for Dockerfile, entrypoint or dependency changes)
+- [ ] `make bench` scores at least 90 (required for image or runtime changes)
 - [ ] Docs updated (ports, volumes, environment variables, limits)
 - [ ] `CHANGELOG.md` updated under `Unreleased`
 

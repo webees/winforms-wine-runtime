@@ -4,27 +4,52 @@
 
 | Container port | Env | Published by default | Notes |
 |---|---|---|---|
-| `6080/tcp` | `NOVNC_PORT` | yes | noVNC static site and WebSocket |
-| `5900/tcp` | `VNC_PORT` | no | Native VNC, bound to `127.0.0.1` |
+| `6901/tcp` | `KASMVNC_PORT` | yes | KasmVNC web client, WebSocket and desktop |
 
-noVNC is a static page plus a WebSocket. Any reverse proxy in front of it must
-forward `Upgrade`/`Connection` headers and allow long-lived connections;
-otherwise the page loads and the canvas stays black.
+KasmVNC serves the static client, the WebSocket and the RFB stream on the same
+port. A reverse proxy in front of it must forward `Upgrade`/`Connection` headers
+and allow long-lived connections; otherwise the page loads and the canvas stays
+black. It also needs to accept the self-signed certificate when `KASMVNC_SSL=1`,
+or you set `KASMVNC_SSL=0` and terminate TLS at the proxy.
 
-The VNC server has no password unless `VNC_PASSWORD` is set. Because that is an
-obvious foot-gun, the entrypoint refuses to bind a non-loopback address without
-a password:
+The web endpoint has no password unless `VNC_PASSWORD` is set. Because that is an
+obvious foot-gun, the entrypoint refuses to start without one unless you opt out
+explicitly:
 
 ```bash
 # fails fast
-docker run -e ENABLE_VNC=1 -e VNC_LISTEN=0.0.0.0 image
+docker run -e ENABLE_VNC=1 image
 
 # works
-docker run -e ENABLE_VNC=1 -e VNC_LISTEN=0.0.0.0 -e VNC_PASSWORD=secret image
+docker run -e ENABLE_VNC=1 -e VNC_PASSWORD=secret image
+
+# deliberate, unauthenticated; only behind an authenticating proxy
+docker run -e ENABLE_VNC=1 -e KASMVNC_ALLOW_NO_AUTH=1 image
 ```
 
-If you need to reach the desktop from the network, prefer publishing `6080`
-through a TLS-terminating proxy over exposing `5900`.
+`KASMVNC_SSL=1` (the default) encrypts the session between the browser and the
+container, which is what you want when `6901` is published directly. Set it to
+`0` only when a proxy terminates TLS.
+
+There is **no second listener**: KasmVNC multiplexes the web client, the
+WebSocket and RFB on `6901`, and `-SecurityTypes None` means the RFB stream is
+only reachable through the authenticated HTTP endpoint. Do not publish `5900`;
+nothing listens there.
+
+## Reverse proxies and Cloudflare Access
+
+Two patterns work, and they are mutually exclusive:
+
+| Front end | Container settings | Notes |
+|---|---|---|
+| TLS-terminating proxy that forwards `Authorization` untouched | `KASMVNC_SSL=0`, `VNC_PASSWORD=…` | Proxy must accept the `Upgrade`/`Connection` headers and allow long-lived connections. |
+| Cloudflare Access, oauth2-proxy, Authelia, or any proxy that **consumes** `Authorization` | `KASMVNC_SSL=0`, `KASMVNC_ALLOW_NO_AUTH=1` | The proxy is the only gate; never publish `6901` when using this pattern. |
+
+A proxy that strips or rewrites `Authorization` while the container still has
+basic auth enabled will make every request fail with `401`. KasmVNC also
+blacklists an address for 10 seconds after 5 consecutive authentication
+failures, which parallel asset requests can trigger — that is upstream
+behaviour, not an image bug.
 
 ### Applications that open ports
 
@@ -45,7 +70,8 @@ use `--network host`.
 ### First start
 
 An empty `/wine` is initialised automatically. Expect roughly 20 s of extra
-start-up and a healthcheck that reports `starting` until the prefix exists.
+start-up before the application window appears. The healthcheck only probes the
+desktop, so it can report healthy while that first-boot copy is still running.
 
 ### Upgrades
 
@@ -70,8 +96,8 @@ docker run -v "$PWD/data:/data" ...
 ```yaml
 services:
   app:
-    image: ghcr.io/webees/winforms-wine-runtime:1
-    ports: ["6080:6080"]
+    image: ghcr.io/webees/winforms-wine-runtime:2
+    ports: ["6901:6901"]
     environment:
       ENABLE_VNC: "1"
       VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
@@ -89,3 +115,7 @@ volumes:
 
 `shm_size: 1gb` matters: Chromium allocates shared memory for its renderer and
 the default 64 MB `/dev/shm` causes renderer crashes or blank pages.
+
+Start with 1 CPU / 2 GiB requested and 2 CPU / 4 GiB as the limit. An idle
+session uses 200–300 MiB, but a WebView2 page with large images, or Magick.NET
+decoding them, can multiply that.

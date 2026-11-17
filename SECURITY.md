@@ -6,8 +6,8 @@ Only the latest minor release receives security fixes.
 
 | Version | Supported |
 |---|---|
-| 1.x | ✅ |
-| < 1.0 | ❌ |
+| 2.x | ✅ |
+| < 2.0 | ❌ |
 
 ## Reporting a vulnerability
 
@@ -30,9 +30,12 @@ consequences:
 
 Default posture, and what the project maintains:
 
-- VNC binds `127.0.0.1` unless an operator explicitly changes `VNC_LISTEN`,
-  and a non-loopback bind without `VNC_PASSWORD` aborts start-up.
-- noVNC is the only published port; there is no other listening service.
+- The desktop refuses to start without `VNC_PASSWORD` unless the operator sets
+  `KASMVNC_ALLOW_NO_AUTH=1`; the password is stored as an HTTP basic-auth
+  credential, not as a VNC password.
+- `KASMVNC_SSL=1` is the default, so the browser session is encrypted end to end
+  even when `6901` is published directly.
+- `6901` is the only published port; there is no other listening service.
 - The image runs as root because Wine writes across the prefix. Compensate with
   `--read-only` plus writable `/wine`, `/data`, `/tmp`, dropped capabilities, and
   a read-only `/app` mount.
@@ -40,6 +43,9 @@ Default posture, and what the project maintains:
   because Chromium's sandbox needs kernel primitives Wine does not provide. This
   makes the embedded browser weaker than a native Chromium sandbox; treat remote
   content loaded in the WebView as fully privileged.
+- KasmVNC's HTTP endpoint is the only supported client; do not expect generic
+  VNC viewers or port scanners to be rejected on a second port, because there
+  is no second port.
 
 ## Out of scope
 

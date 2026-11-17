@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: score tests
+        run: python3 scripts/test_score.py
 
       - name: shellcheck
         run: |
@@ -43,6 +45,16 @@ jobs:
         with:
           fail-on-error: true
 
+      - name: docs match code
+        run: |
+          set -euo pipefail
+          ./scripts/check-docs.sh
+
+      - name: example compose file
+        run: |
+          set -euo pipefail
+          VNC_PASSWORD=example docker compose -f examples/docker-compose.yml config >/dev/null
+
       - name: workflow hygiene
         run: |
           set -euo pipefail
@@ -63,7 +75,7 @@ jobs:
           exit $status
 
   build:
-    name: build + self-test
+    name: build + bench
     runs-on: ubuntu-24.04
     needs: lint
     steps:
@@ -101,32 +113,11 @@ jobs:
       - name: image size budget
         run: |
           set -euo pipefail
-          base=$(docker image inspect "$IMAGE:ci" --format '{{.Size}}')
-          demo=$(docker image inspect "$IMAGE:ci-demo" --format '{{.Size}}')
-          printf 'base=%.2f GB demo=%.2f GB\n' \
-            "$(echo "$base" | awk '{print $1/1e9}')" "$(echo "$demo" | awk '{print $1/1e9}')"
+          # Same yardstick as scripts/bench.sh and docs/benchmark.md.
+          base=$(docker run --rm --entrypoint du "$IMAGE:ci" -sbx / | awk '{print $1}')
+          printf 'base=%.2f GiB\n' "$(echo "$base" | awk '{print $1/1073741824}')"
           # Guard against accidental inclusion of i386 Wine or a duplicated runtime.
-          test "$base" -lt 4500000000 || { echo "::error::base image exceeds 4.5 GB"; exit 1; }
-
-      - name: self-test
-        run: |
-          set -euo pipefail
-          IMAGE="$IMAGE:ci-demo" OUT_DIR="$PWD/evidence" ./scripts/selftest.sh
-
-      - name: noVNC smoke test
-        run: |
-          set -euo pipefail
-          docker run -d --name vnc-smoke -e ENABLE_VNC=1 -p 6080:6080 \
-            "$IMAGE:ci-demo" --selftest --out 'Z:\data'
-          ok=0
-          for _ in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:6080/vnc.html || true)
-            [ "$code" = "200" ] && { ok=1; break; }
-            sleep 2
-          done
-          docker logs vnc-smoke || true
-          docker rm -f vnc-smoke >/dev/null 2>&1 || true
-          [ "$ok" = "1" ] || { echo "::error::noVNC did not serve /vnc.html"; exit 1; }
+          test "$base" -lt 4831838208 || { echo "::error::base image exceeds 4.5 GiB"; exit 1; }
 
       - name: container hardening check
         run: |
@@ -136,15 +127,23 @@ jobs:
             echo "::error::image started with no application"
             exit 1
           fi
-          grep -q 'no .exe found in /app' /tmp/noapp.log || {
+          grep -q 'no .exe in /app' /tmp/noapp.log || {
             echo "::error::missing guard for empty /app"; cat /tmp/noapp.log; exit 1; }
+
+      - name: benchmark and score
+        run: |
+          set -euo pipefail
+          IMAGE="$IMAGE:ci-demo" ./scripts/bench.sh --out bench.json --evidence evidence
+          ./scripts/score.py bench.json --min 90 | tee bench.txt
 
       - name: upload evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: self-test-evidence
+          name: bench-evidence
           path: |
+            bench.json
+            bench.txt
             evidence/report.json
             evidence/*.png
           if-no-files-found: warn
