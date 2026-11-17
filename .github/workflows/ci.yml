@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
           shellcheck --version
-          shellcheck docker/*.sh scripts/*.sh
+          shellcheck -x docker/*.sh scripts/*.sh
 
       - name: hadolint
         uses: hadolint/hadolint-action@v3.5.0
@@ -46,33 +46,13 @@ jobs:
           fail-on-error: true
 
       - name: docs match code
-        run: |
-          set -euo pipefail
-          ./scripts/check-docs.sh
+        run: ./scripts/check-docs.sh
 
       - name: example compose file
-        run: |
-          set -euo pipefail
-          VNC_PASSWORD=example docker compose -f examples/docker-compose.yml config >/dev/null
+        run: VNC_PASSWORD=example docker compose -f examples/docker-compose.yml config >/dev/null
 
-      - name: workflow hygiene
-        run: |
-          set -euo pipefail
-          status=0
-          # Every action must be pinned to a version tag, never a branch.
-          while IFS= read -r ref; do
-            case "$ref" in
-              *@v[0-9]*) ;;
-              *) echo "::error::unpinned action: $ref"; status=1 ;;
-            esac
-          done < <(grep -rhoE '^[[:space:]]*-[[:space:]]+uses:[[:space:]]+[^[:space:]]+' \
-            .github/workflows | awk '{print $NF}')
-          # No mutable branch refs in workflows.
-          if grep -rnE '^[[:space:]]*-[[:space:]]+uses:[[:space:]]+[^[:space:]]+@(master|main|develop)$' \
-            .github/workflows; then
-            echo "::error::mutable branch ref in uses:"; status=1
-          fi
-          exit $status
+      - name: action pins
+        run: ./scripts/check-action-pins.sh
 
   build:
     name: build + bench
@@ -118,6 +98,12 @@ jobs:
           printf 'base=%.2f GiB\n' "$(echo "$base" | awk '{print $1/1073741824}')"
           # Guard against accidental inclusion of i386 Wine or a duplicated runtime.
           test "$base" -lt 4831838208 || { echo "::error::base image exceeds 4.5 GiB"; exit 1; }
+
+      - name: runtime ships no application
+        run: |
+          set -euo pipefail
+          leftover=$(docker run --rm --entrypoint find "$IMAGE:ci" /app -mindepth 1 -print -quit)
+          test -z "$leftover" || { echo "::error::runtime image contains $leftover"; exit 1; }
 
       - name: container hardening check
         run: |

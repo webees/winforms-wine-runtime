@@ -27,10 +27,16 @@ while [ $# -gt 0 ]; do
 done
 
 PW=bench-password
+# Container-side desktop port, i.e. the image's KASMVNC_PORT default.
+DESKTOP_PORT=6901
 APP="wfr-bench-$$"
 TLS="wfr-bench-tls-$$"
 tmp=$(mktemp -d)
-cleanup() { docker rm -f "$APP" "$TLS" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+clean_tree() { # the app writes as its own uid; fall back to a root container
+  rm -rf "$1" 2>/dev/null ||
+    docker run --rm -u 0:0 --entrypoint sh -v "$1:/w" "$IMAGE" -c 'find /w -mindepth 1 -delete' >/dev/null 2>&1 || true
+}
+cleanup() { docker rm -f "$APP" "$TLS" >/dev/null 2>&1 || true; clean_tree "$tmp"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -81,7 +87,7 @@ wait_app() { # seconds; Wine's desktop owns the root, the app maps its own windo
   return 1
 }
 
-host_port() { docker port "$1" 6901/tcp | head -n1 | sed 's/.*://'; }
+host_port() { docker port "$1" "${DESKTOP_PORT}/tcp" | head -n1 | sed 's/.*://'; }
 
 mem_kb() { # container
   local mem value
@@ -103,7 +109,7 @@ size=$(docker run --rm ${plat[@]+"${plat[@]}"} --entrypoint du "$IMAGE" -sbx / 2
 echo "==> cold start (HTTP)"
 start=$(now_ms)
 docker run -d ${plat[@]+"${plat[@]}"} --name "$APP" -e ENABLE_VNC=1 -e VNC_PASSWORD="$PW" -e KASMVNC_SSL=0 \
-  -p "127.0.0.1::6901" "$IMAGE" >/dev/null
+  -p "127.0.0.1::${DESKTOP_PORT}" "$IMAGE" >/dev/null
 HTTP_PORT=$(host_port "$APP")
 [ -n "$HTTP_PORT" ] || { echo "bench: no published desktop port" >&2; exit 1; }
 if ! wait_http "http://127.0.0.1:$HTTP_PORT/" "wine:$PW" 120; then
@@ -137,7 +143,7 @@ rss_kb=${idle:-0}
 echo "==> TLS default"
 docker rm -f "$TLS" >/dev/null 2>&1 || true
 docker run -d ${plat[@]+"${plat[@]}"} --name "$TLS" -e ENABLE_VNC=1 -e VNC_PASSWORD="$PW" \
-  -p "127.0.0.1::6901" "$IMAGE" >/dev/null
+  -p "127.0.0.1::${DESKTOP_PORT}" "$IMAGE" >/dev/null
 TLS_PORT=$(host_port "$TLS")
 [ -n "$TLS_PORT" ] || { echo "bench: no published TLS port" >&2; exit 1; }
 wait_http "https://127.0.0.1:$TLS_PORT/" "wine:$PW" 120 || { echo "bench: TLS listener failed" >&2; exit 1; }
@@ -154,8 +160,8 @@ fi
 echo "==> self-test"
 selftest_dir="$tmp/selftest"
 mkdir -p "$selftest_dir"
-# selftest.sh rewrites the summary even when it fails; the seeded default covers
-# a crash before the report is read.
+# The seeded default covers a failed docker run or a crash before the report is
+# read; a completed run overwrites it.
 printf 'false 0 0\n' >"$tmp/selftest.summary"
 selftest_start=$(now_ms)
 OUT_DIR="$selftest_dir" IMAGE="$IMAGE" PLATFORM="$PLATFORM" SUMMARY_FILE="$tmp/selftest.summary" \

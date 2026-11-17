@@ -15,7 +15,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -44,8 +43,12 @@ jobs:
             echo "::error::tag '$tag' is not vX.Y.Z"; exit 1; }
           version="${tag#v}"
           # CHANGELOG must already describe this version.
-          grep -q "^## \[$version\]" CHANGELOG.md || {
+          heading=$(grep -m1 "^## \[$version\]" CHANGELOG.md || true)
+          [ -n "$heading" ] || {
             echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          case "$heading" in
+            *Unreleased*) echo "::error::CHANGELOG.md still marks $version as Unreleased"; exit 1 ;;
+          esac
           {
             echo "tag=$tag"
             echo "version=$version"

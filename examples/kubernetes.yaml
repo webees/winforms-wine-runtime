@@ -10,6 +10,16 @@ spec:
     requests:
       storage: 4Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: winforms-app-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,13 +41,19 @@ spec:
         runAsUser: 0
       containers:
         - name: app
-          image: ghcr.io/webees/winforms-wine-runtime:2
+          # Locally built runtime image (`make build-base`): it holds Wine,
+          # KasmVNC and WebView2 but no application. Build your own image as
+          # `FROM ghcr.io/webees/winforms-wine-runtime:dev` plus `COPY publish/ /app`.
+          # As written the pod cannot start: the runtime contains no /app.
+          image: ghcr.io/webees/winforms-wine-runtime:dev
           env:
             - name: ENABLE_VNC
               value: "1"
             # TLS is terminated by the Ingress; keep the pod on plain HTTP.
             - name: KASMVNC_SSL
               value: "0"
+            # kubectl create secret generic winforms-app \
+            #   --from-literal=vnc-password='...'
             - name: VNC_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -75,7 +91,8 @@ spec:
           persistentVolumeClaim:
             claimName: winforms-wine-prefix
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: winforms-app-data
         - name: shm
           emptyDir:
             medium: Memory

@@ -26,12 +26,19 @@ docker run --rm -p 6901:6901 \
 若前置了负责 TLS 的反向代理，设置 `-e KASMVNC_SSL=0`。
 
 > GHCR 上发布的是运行时镜像（`ghcr.io/webees/winforms-wine-runtime`），
-> 不含自检程序。`-demo` 标签只在本地构建，用于验证。
+> 不含自检程序。`-demo` 标签只在本地构建，用于验证；只有
+> `--target demo` 会把自检程序加进去，直接 `docker build .` 得到的是不含
+> 任何应用的运行时。
+
+> **发布状态：** 2.x KasmVNC 运行时尚未发布。先用 `make build` 在本地构建，
+> 标签为 `ghcr.io/webees/winforms-wine-runtime:dev`；GHCR 上现有的 1.x
+> 是旧的 noVNC 运行时，与本文参数不兼容。发布 `v2.0.0` 后会提供 `:2`、
+> `:2.0`、`:2.0.0`。
 
 ## 用自己的程序
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2
+FROM ghcr.io/webees/winforms-wine-runtime:dev
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -68,20 +75,20 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 |---|---|---|
 | `UBUNTU_VERSION` | `26.04` | 基础发行版；22.04 与 24.04 自带 Wine 6.0 与 9.0，无法加载 .NET 8 |
 | `DOTNET_SDK_IMAGE` | `mcr.microsoft.com/dotnet/sdk:8.0` | 编译自检程序 |
-| `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version 运行时，版本上限见上文 |
-| `KASMVNC_VERSION` | `1.5.2` | KasmVNC 版本，带 SHA-256 校验 |
+| `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version 运行时，版本上限见「WebView2 版本策略」 |
+| `KASMVNC_VERSION` | `1.5.2` | KasmVNC 版本；SHA-256 只对 1.5.2 有效，覆盖版本需同步改校验值 |
 | `KASMVNC_VIDEO` | `1` | 安装 FFmpeg，提供 H.264/H.265/AV1 编码 |
 | `WINE64_ONLY` | `1` | 去掉 32 位 Wine（`i386-windows`、`syswow64`），约 1.2 GB |
 | `IMAGE_VERSION` | `0.0.0` | `org.opencontainers.image.version` 标签 |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` 标签 |
-| `TARGETARCH` | `amd64` | 架构，多架构构建时由 BuildKit 设置 |
+| `TARGETARCH` | `amd64` | 由 BuildKit 注入；只接受 `amd64` |
 
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `APP` | `/app` 下第一个 `*.exe` | 启动的可执行文件 |
-| `APP_ARGS` | 空 | 额外参数 |
+| `APP` | `/app` 下第一个 `*.exe` | 启动的可执行文件：`/app` 下的裸文件名或 Linux 绝对路径；不接受 `C:\...` 这类 Windows 路径 |
+| `APP_ARGS` | 空 | 额外参数，按空白切分，不支持引号 |
 | `SCREEN` | `1600x900x24` | 桌面分辨率与色深 |
 | `ENABLE_VNC` | `0` | `1` 启动 KasmVNC |
 | `VNC_PASSWORD` | 空 | HTTP Basic 密码，至少 6 位 |
@@ -94,7 +101,35 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | 动态 JPEG/WebP 质量下限与上限（0–9） |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`、`h264`、`h265`、`av1` 或对应的 `*_vaapi` |
 | `KASMVNC_RECT_THREADS` | `0` | 编码线程数，`0` 表示自动 |
-| `WEBVIEW2_USER_DATA_FOLDER` | 空 | 覆盖 WebView2 配置目录位置 |
+| `WEBVIEW2_USER_DATA_FOLDER` | 空 | 镜像不设置；应用应自行向 `CreateAsync` 传 `userDataFolder`（自检程序用 `Z:\data\wv2`） |
+
+自动探测只扫描 `/app` 顶层（不递归），并跳过 `createdump.exe`、`*.vshost.exe`
+这类运行时辅助程序；`APP` 指定子目录时用相对路径，例如 `sub/YourApp.exe`。
+
+## WebView2：必须写的一行代码
+
+Wine 下 WebView2 加载器不会自己发现 Fixed Version 运行时，
+`WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 也不会被读取；只有应用把目录显式传给
+加载器时才会生效。
+
+```csharp
+var dir = Environment.GetEnvironmentVariable("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"); // C:\webview2
+var env = await CoreWebView2Environment.CreateAsync(
+    dir, userDataFolder, new CoreWebView2EnvironmentOptions());
+await webView.EnsureCoreWebView2Async(env);
+```
+
+镜像内 `C:\webview2` 是固定路径，`dir` 也可以直接写死。用 Windows API 访问
+`C:\webview2` 时，操作的是 Wine prefix，而不是宿主机目录。
+
+## WebView2 版本策略
+
+镜像使用 **Fixed Version** 运行时（NuGet `webview2.runtime.x64`），而不是
+Evergreen 安装器，因为安装器在 Wine 下无法运行。
+
+Wine 10 目前支持到 **135.0.3179.98**；136 及以后能启动 renderer，但导航和
+`postMessage` 桥接永远不完成。升级 `WEBVIEW2_VERSION` 前必须运行
+`scripts/bisect-webview2.sh` 和自检，不能只改版本号。
 
 ## 已验证
 
@@ -118,6 +153,27 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 镜像执行任意 Windows 代码，**Wine 不是沙箱**。不要挂载宿主敏感目录或
 Docker socket；只发布 `6901`，保持 TLS 开启（或在前置代理终止）。详见
 [SECURITY.md](SECURITY.md)。
+
+## 本地构建
+
+```bash
+make build          # 运行时 + 自检两个目标
+make test           # 在容器里跑自检
+make bench          # 测体积、启动、内存并写出 bench.json
+make score          # 评分，低于 90 分失败
+make baseline       # 统计跟踪的文件数、行数、字节数与最大文件
+make score-test     # 评分规则单测
+make lint           # shellcheck、hadolint、actionlint、action 固定版本、文档同步、评分单测
+```
+
+arm64 宿主机上所有目标都走 QEMU 模拟，可用但很慢；CI 与生产使用原生 x86-64。
+
+## 文档
+
+- [docs/architecture.md](docs/architecture.md) — 分层、启动流程、构建决策
+- [docs/ports-and-volumes.md](docs/ports-and-volumes.md) — 端口与持久化
+- [docs/troubleshooting.md](docs/troubleshooting.md) — 已知故障与处理
+- [docs/benchmark.md](docs/benchmark.md) — 基线数据与评分口径
 
 ## 许可
 

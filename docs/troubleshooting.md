@@ -26,7 +26,7 @@ Check what was loaded:
 docker exec <container> ldconfig -p | grep libavcodec
 ```
 
-A `libavcodec.so.62` line means the encoder can be `dlopen()`ed at runtime. The
+A `libavcodec.so.` line means the encoder can be `dlopen()`ed at runtime. The
 adapter is loaded lazily and is not logged; `/tmp/kasmvnc.log` only reports
 hardware acceleration (`... capability: none` is expected without `/dev/dri`).
 Rebuild with `--build-arg KASMVNC_VIDEO=1` (the default) if the library is
@@ -37,8 +37,9 @@ missing.
 Three causes, in order of likelihood:
 
 1. **The application did not pass the runtime folder.** The loader cannot
-   discover a Fixed Version runtime under Wine. Use
-   `CoreWebView2Environment.CreateAsync(Environment.GetEnvironmentVariable("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"), userData, options)`.
+   discover a Fixed Version runtime under Wine. Pass
+   `Environment.GetEnvironmentVariable("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")` as
+   the `browserExecutableFolder` argument of `CoreWebView2Environment.CreateAsync`.
    The symptom is `WebView2RuntimeNotFoundException`.
 2. **Runtime above the Wine ceiling.** Check the reported version:
 
@@ -105,8 +106,9 @@ start the container with an empty `/wine` volume.
 
 ## The application starts once and then crashes on restart
 
-The WebView2 user-data folder is left locked or half-written. Use a unique
-`WEBVIEW2_USER_DATA_FOLDER` per session, or start with a fresh `/data`.
+The WebView2 user-data folder is left locked or half-written. Pass a unique
+`userDataFolder` to `CoreWebView2Environment.CreateAsync` for each session (the
+self-test uses `/data/wv2`), or start with a fresh `/data`.
 
 ## `win-x64` application fails with `ERROR_MOD_NOT_FOUND`
 

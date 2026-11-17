@@ -31,7 +31,7 @@ layers are cached afterwards.
 ## Pull requests
 
 1. One logical change per pull request.
-2. Update `CHANGELOG.md` under `Unreleased`.
+2. Update `CHANGELOG.md` under the top (unreleased) version heading.
 3. Describe how you verified the change. Image changes require a CI run or a
    local `make test` transcript.
 4. Update the docs when behaviour, ports, volumes or environment variables

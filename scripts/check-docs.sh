@@ -30,7 +30,7 @@ for readme in README.md README.zh-CN.md; do
   done
   for v in $docs; do
     case "$v" in WEBVIEW2_*) continue ;; esac  # consumed by the WebView2 loader
-    grep -q "\b${v}\b" docker/entrypoint.sh Dockerfile || bad "$readme documents \`$v\` but no code reads it"
+    grep -qw "$v" docker/entrypoint.sh Dockerfile || bad "$readme documents \`$v\` but no code reads it"
   done
 done
 
@@ -90,7 +90,7 @@ measured = re.search(r"^## What is measured$(.*?)^## ", text, re.S | re.M)
 documented_metrics = {
     key for line in (measured.group(1).splitlines() if measured else [])
     if line.startswith("|")
-    for key in re.findall(r"`([a-z0-9_]+)`", line.split("|")[1])
+    for key in re.findall(r"`([a-z0-9_]+)`", (line.split("|") + [""])[1])
 }
 if not documented_metrics:
     print("docs-chk: docs/benchmark.md has no 'What is measured' table", file=sys.stderr)
@@ -128,6 +128,24 @@ image=$(awk -F' \\?= ' '/^IMAGE \?=/ {print $2}' Makefile)
 [ -n "$image" ] || bad "Makefile does not define IMAGE"
 for f in README.md README.zh-CN.md docs/ports-and-volumes.md examples/kubernetes.yaml; do
   grep -q "$image" "$f" || bad "$f does not reference the built image $image"
+done
+
+# The published tags are 1.0.0, 1.0, 1 and latest. 2.x is still unreleased, so
+# the docs must not point users at it. Drop 2.x from this list when v2.0.0 ships.
+unreleased='2|2\.0|2\.0\.0'
+for f in README.md README.zh-CN.md docs/*.md examples/*.yml examples/*.yaml; do
+  [ -f "$f" ] || continue
+  if grep -nE "${image//./\\.}:(${unreleased})([^0-9.]|$)" "$f" >/dev/null; then
+    bad "$f references an unpublished image tag (see CHANGELOG.md)"
+  fi
+done
+
+# APP takes a bare filename under /app or an absolute Linux path. A Windows
+# path cannot be resolved before Wine starts, so never advertise one.
+for f in README.md README.zh-CN.md docs/*.md; do
+  if grep -nE 'APP=([A-Za-z]:\\|[A-Za-z]:/)' "$f" >/dev/null; then
+    bad "$f shows a Windows path for APP"
+  fi
 done
 
 if [ "$fail" -ne 0 ]; then

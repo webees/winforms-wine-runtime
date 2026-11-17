@@ -3,7 +3,7 @@ TAG ?= dev
 PLATFORM ?= linux/amd64
 BUILD_ARGS ?=
 
-.PHONY: help build build-base build-demo test bench score score-test docs-check lint shellcheck hadolint actionlint push clean
+.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint shellcheck hadolint actionlint push clean
 
 help:
 	@printf '%s\n' \
@@ -15,8 +15,9 @@ help:
 	  '  bench        measure image, start time, memory; write bench.json' \
 	  '  score        grade bench.json against docs/benchmark.md' \
 	  '  docs-check   fail when code and docs disagree' \
+	  '  baseline     tracked file, line and byte totals plus the largest files' \
 	  '  score-test   unit tests for the scoring rubric' \
-	  '  lint         shellcheck + hadolint + actionlint + docs and score checks' \
+	  '  lint         shellcheck + hadolint + actionlint + workflow, docs and score checks' \
 	  '  push         push $(IMAGE):$(TAG) for $(PLATFORM)' \
 	  '  clean        remove local images built here'
 
@@ -40,17 +41,23 @@ bench:
 score:
 	./scripts/score.py bench.json
 
+baseline:
+	./scripts/baseline.sh
+
 docs-check:
 	./scripts/check-docs.sh
 
-lint: shellcheck hadolint actionlint docs-check score-test
+lint: shellcheck hadolint actionlint pins-check docs-check score-test
+
+pins-check:
+	./scripts/check-action-pins.sh
 
 score-test:
-	python3 scripts/test_score.py
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_score.py
 
 shellcheck:
 	@if command -v shellcheck >/dev/null 2>&1; then \
-	  shellcheck docker/*.sh scripts/*.sh; \
+	  shellcheck -x docker/*.sh scripts/*.sh; \
 	else \
 	  docker run --rm -v "$(CURDIR):/mnt" -w /mnt koalaman/shellcheck:stable \
 	    docker/*.sh scripts/*.sh; \

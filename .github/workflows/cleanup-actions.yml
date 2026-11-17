@@ -1,4 +1,4 @@
-name: Cleanup workflow runs
+name: Cleanup actions
 
 # Deletes old workflow runs, caches and artifacts. Runs are kept per workflow so
 # that recent history of every workflow stays visible.
@@ -29,7 +29,8 @@ jobs:
     name: prune
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/github-script@v9
+      - name: prune runs, caches and artifacts
+        uses: actions/github-script@v9
         env:
           KEEP_RUNS: ${{ inputs.keep_runs || '20' }}
           MAX_AGE_DAYS: ${{ inputs.max_age_days || '30' }}
@@ -37,84 +38,79 @@ jobs:
           script: |
             const keep = Number(process.env.KEEP_RUNS);
             const maxAgeDays = Number(process.env.MAX_AGE_DAYS);
+            if (!Number.isInteger(keep) || keep < 1) {
+              core.setFailed(`keep_runs must be a positive integer, got '${process.env.KEEP_RUNS}'`);
+              return;
+            }
+            if (!Number.isFinite(maxAgeDays) || maxAgeDays < 1) {
+              core.setFailed(`max_age_days must be a positive number, got '${process.env.MAX_AGE_DAYS}'`);
+              return;
+            }
             const cutoff = Date.now() - maxAgeDays * 86400_000;
             const { owner, repo } = context.repo;
 
+            const warn = (what, id, error) =>
+              core.warning(`${what} ${id}: ${error.message}`);
+
+            // Workflow runs: keep the newest `keep` runs per workflow unless
+            // they are older than the age cutoff.
             const workflows = await github.paginate(
               github.rest.actions.listRepoWorkflows,
               { owner, repo, per_page: 100 });
 
-            let deleted = 0;
+            let runs = 0;
             for (const wf of workflows) {
-              const runs = await github.paginate(
+              const list = await github.paginate(
                 github.rest.actions.listWorkflowRuns,
                 { owner, repo, workflow_id: wf.id, per_page: 100 });
 
-              for (const [index, run] of runs.entries()) {
+              for (const [index, run] of list.entries()) {
                 const tooOld = new Date(run.created_at).getTime() < cutoff;
                 if (index < keep && !tooOld) continue;
                 if (run.status !== 'completed') continue;
                 try {
                   await github.rest.actions.deleteWorkflowRun({
                     owner, repo, run_id: run.id });
-                  deleted++;
+                  runs++;
                 } catch (error) {
-                  core.warning(`run ${run.id}: ${error.message}`);
+                  warn('run', run.id, error);
                 }
               }
             }
 
-            core.info(`deleted ${deleted} workflow run(s)`);
-            core.setOutput('deleted', deleted);
-
-      - name: prune caches
-        uses: actions/github-script@v9
-        env:
-          MAX_AGE_DAYS: ${{ inputs.max_age_days || '30' }}
-        with:
-          script: |
-            const cutoff = Date.now()
-              - Number(process.env.MAX_AGE_DAYS) * 86400_000;
-            const { owner, repo } = context.repo;
+            // Caches and artifacts are pruned purely by age.
             const caches = await github.paginate(
               github.rest.actions.getActionsCacheList,
               { owner, repo, per_page: 100 });
 
-            let deleted = 0;
+            let cacheCount = 0;
             for (const cache of caches) {
               if (new Date(cache.last_accessed_at).getTime() >= cutoff) continue;
               try {
                 await github.rest.actions.deleteActionsCacheById({
                   owner, repo, cache_id: cache.id });
-                deleted++;
+                cacheCount++;
               } catch (error) {
-                core.warning(`cache ${cache.id}: ${error.message}`);
+                warn('cache', cache.id, error);
               }
             }
-            core.info(`deleted ${deleted} cache(s)`);
 
-      - name: prune artifacts
-        uses: actions/github-script@v9
-        env:
-          MAX_AGE_DAYS: ${{ inputs.max_age_days || '30' }}
-        with:
-          script: |
-            const cutoff = Date.now()
-              - Number(process.env.MAX_AGE_DAYS) * 86400_000;
-            const { owner, repo } = context.repo;
             const artifacts = await github.paginate(
               github.rest.actions.listArtifactsForRepo,
               { owner, repo, per_page: 100 });
 
-            let deleted = 0;
+            let artifactCount = 0;
             for (const artifact of artifacts) {
               if (new Date(artifact.created_at).getTime() >= cutoff) continue;
               try {
                 await github.rest.actions.deleteArtifact({
                   owner, repo, artifact_id: artifact.id });
-                deleted++;
+                artifactCount++;
               } catch (error) {
-                core.warning(`artifact ${artifact.id}: ${error.message}`);
+                warn('artifact', artifact.id, error);
               }
             }
-            core.info(`deleted ${deleted} artifact(s)`);
+
+            core.info(
+              `deleted ${runs} run(s), ${cacheCount} cache(s), ${artifactCount} artifact(s)`);
+            core.setOutput('deleted_runs', runs);

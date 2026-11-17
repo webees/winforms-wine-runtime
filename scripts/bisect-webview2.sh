@@ -5,6 +5,8 @@
 #
 # Builds the self-test image with WEBVIEW2_VERSION=<version> and runs it.
 # Exit code 0 = pass, 1 = fail.
+#
+# The image is removed afterwards; set KEEP_IMAGE=1 to inspect it.
 set -euo pipefail
 
 VERSION="${1:?usage: bisect-webview2.sh <webview2-version>}"
@@ -14,7 +16,7 @@ PLATFORM="${PLATFORM-linux/amd64}"
 plat=()
 [ -n "$PLATFORM" ] && plat=(--platform "$PLATFORM")
 OUT_DIR="$(mktemp -d)"
-trap 'rm -rf "$OUT_DIR"' EXIT
+trap 'rm -rf "$OUT_DIR"; [ "${KEEP_IMAGE:-0}" = "1" ] || docker image rm -f "winforms-wine-runtime:$TAG" >/dev/null 2>&1 || true' EXIT
 
 echo "==> building self-test image with WebView2 $VERSION"
 docker build ${plat[@]+"${plat[@]}"} --target demo \

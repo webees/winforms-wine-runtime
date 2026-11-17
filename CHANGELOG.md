@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - Unreleased
 
 ### Added
 
@@ -15,18 +15,58 @@ All notable changes to this project are documented here. The format follows
   ports, links and the scoring table against the code.
 - `docs/benchmark.md` records the measurement method, the 100-point rubric and
   the reference baselines behind the release gate.
+- HTTP basic authentication derived from `VNC_PASSWORD`, and a hard refusal to
+  start unauthenticated without `KASMVNC_ALLOW_NO_AUTH=1`.
+- Encoder tuning knobs: `KASMVNC_FRAME_RATE`, `KASMVNC_QUALITY_MIN/MAX`,
+  `KASMVNC_RECT_THREADS`, `KASMVNC_VIDEO_CODEC`.
+- `KASMVNC_VIDEO` build argument installing FFmpeg so the WebCodecs path has a
+  `libavcodec` to `dlopen()`.
 
 ### Changed
 
+- **Breaking:** the desktop path is now KasmVNC 1.5.2 instead of
+  Xvfb + x11vnc + noVNC. One process (`Xkasmvnc`) owns the display, the encoder
+  and the web client, so frames are damage-driven instead of polled, rectangles
+  mix WebP and JPEG per update, and large changed areas can use WebCodecs
+  H.264/H.265/AV1.
+- **Breaking:** the published port is `6901` (was `6080`) and `5900` no longer
+  exists. `NOVNC_PORT`, `VNC_PORT` and `VNC_LISTEN` are replaced by
+  `KASMVNC_PORT`, `KASMVNC_*` and `KASMVNC_SSL`.
+- **Breaking:** the container serves HTTPS with a generated self-signed
+  certificate by default. Set `KASMVNC_SSL=0` behind a TLS-terminating proxy.
+- The Chinese README now mirrors the English one: the WebView2 requirement, the
+  version policy, local build targets and the documentation index are no longer
+  English-only.
 - Slimmer image: one layer for the Wine prefix, `xvfb-run` for build-time
   checks, and unused packages (`xz-utils`, `scrot`, `procps`, extra font
   families) removed.
 - `scripts/selftest.sh`, `scripts/bench.sh` and `scripts/bisect-webview2.sh`
   take the target platform from `PLATFORM`; the archive default is
   `linux/amd64`.
+- Document that the 2.x KasmVNC image is not on GHCR yet; examples use the
+  locally built `:dev` tag until `v2.0.0` is released.
 
 ### Fixed
 
+- `scripts/check-docs.sh` now rejects documentation that advertises an
+  unpublished image tag (`:2`, `:2.0`, `:2.0.0`) or a Windows path for `APP`.
+- `scripts/selftest.sh` resolves a relative `OUT_DIR` before handing it to
+  `docker run` and reports a missing `report.json` explicitly instead of
+  failing inside `cat`.
+- The self-test window cannot start a second run while one is in flight, and
+  reports grid columns instead of an always-zero row count.
+- Cleanup workflows reject non-numeric `keep_runs`/`max_age_days` instead of
+  silently deleting every run when the input parses to `NaN`.
+- `.dockerignore` also excludes benchmark output, evidence directories and
+  Python bytecode, so they cannot drift into the build context.
+- `SECURITY.md` lists 1.x as the supported line; 2.x is marked unreleased.
+- Re-apply the CJK font mappings and MSVC DLLs on every start, so a `/wine`
+  volume created by an older image is upgraded instead of silently keeping
+  stale fonts and DLLs.
+- Fail with a clear message when `APP` is a Windows path or when prefix setup
+  fails, instead of resolving an unreachable `C:\...` path.
+- Probe KasmVNC with `ss` in the healthcheck; bash `/dev/tcp` does not handle
+  IPv6 literals reliably and ignored a custom `KASMVNC_LISTEN`.
 - The `org.opencontainers.image.base.name` label now includes the Ubuntu
   version; `UBUNTU_VERSION` was not declared inside the build stage, so the
   label ended with a bare `ubuntu:`.
@@ -42,34 +82,32 @@ All notable changes to this project are documented here. The format follows
   `/tmp/.kasmvnc`, so `--read-only` works with only `/tmp`, `/wine` and `/data`
   writable. A failed credential write now aborts startup instead of leaving the
   desktop in an undefined auth state.
-
-## [2.0.0] - 2026-11-17
-
-### Changed
-
-- **Breaking:** the desktop path is now KasmVNC 1.5.2 instead of
-  Xvfb + x11vnc + noVNC. One process (`Xkasmvnc`) owns the display, the encoder
-  and the web client, so frames are damage-driven instead of polled, rectangles
-  mix WebP and JPEG per update, and large changed areas can use WebCodecs
-  H.264/H.265/AV1.
-- **Breaking:** the published port is `6901` (was `6080`) and `5900` no longer
-  exists. `NOVNC_PORT`, `VNC_PORT` and `VNC_LISTEN` are replaced by
-  `KASMVNC_PORT`, `KASMVNC_*` and `KASMVNC_SSL`.
-- **Breaking:** the container serves HTTPS with a generated self-signed
-  certificate by default. Set `KASMVNC_SSL=0` behind a TLS-terminating proxy.
-
-### Added
-
-- HTTP basic authentication derived from `VNC_PASSWORD`, and a hard refusal to
-  start unauthenticated without `KASMVNC_ALLOW_NO_AUTH=1`.
-- Encoder tuning knobs: `KASMVNC_FRAME_RATE`, `KASMVNC_QUALITY_MIN/MAX`,
-  `KASMVNC_RECT_THREADS`, `KASMVNC_VIDEO_CODEC`.
-- `KASMVNC_VIDEO` build argument installing FFmpeg so the WebCodecs path has a
-  `libavcodec` to `dlopen()`.
+- Builds fail fast on any architecture other than `amd64`: the WebView2 runtime
+  is x64-only, so the previous `arm64` path produced an image that could not run
+  the target applications.
+- `examples/docker-compose.yml` honours `KASMVNC_SSL` from `.env` instead of
+  hard-coding TLS on.
+- CI's action-pinning check now also inspects `uses:` lines that are not the
+  first element of a step, which is how `release.yml` declares its actions.
+- `scripts/bench.sh` derives the container port from one variable instead of
+  repeating `6901`, and `scripts/bisect-webview2.sh` removes its ~4 GiB image
+  unless `KEEP_IMAGE=1` is set.
+- The self-test builds its report in one pass over a step list; the unused
+  `SELFTEST_OUT` fallback and the null guards for controls that are always
+  created are gone.
+- Action pinning lives in `scripts/check-action-pins.sh`, shared by `make lint`
+  and CI, and `cleanup-actions.yml` prunes runs, caches and artifacts in one
+  validated script step instead of three copies.
+- `make baseline` reports tracked files, lines, bytes and the largest files, so
+  size changes are comparable across commits.
+- The default Docker stage is the app-free runtime again: only `--target demo`
+  adds the self-test application, and CI fails if `/app` is not empty in the
+  published image.
 
 ### Removed
 
 - `x11vnc`, `noVNC` and `websockify` from the image.
+- `docs/images/` screenshots; the self-test table documents the same evidence.
 
 ## [1.0.0] - 2026-11-17
 
@@ -97,6 +135,5 @@ All notable changes to this project are documented here. The format follows
 - `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` documents `--no-sandbox` as a
   requirement of Wine, not a convenience.
 
-[Unreleased]: https://github.com/webees/winforms-wine-runtime/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/webees/winforms-wine-runtime/compare/v1.0.0...v2.0.0
+[2.0.0]: https://github.com/webees/winforms-wine-runtime/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/webees/winforms-wine-runtime/releases/tag/v1.0.0

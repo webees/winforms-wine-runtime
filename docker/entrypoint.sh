@@ -31,7 +31,11 @@ WINESERVER="${WINESERVER:-/usr/local/bin/wineserver}"
 CHILD=""
 log() { printf '[entrypoint] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
-cleanup() { [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true; }
+cleanup() {
+  if [ -n "$CHILD" ]; then
+    kill "$CHILD" 2>/dev/null || true
+  fi
+}
 trap cleanup EXIT
 
 wait_for_display() {
@@ -60,8 +64,14 @@ prepare_auth() {
 }
 
 prepare_cert() {
-  [ -n "${KASMVNC_CERT:-}" ] && { [ -r "$KASMVNC_CERT" ] || die "KASMVNC_CERT unreadable: $KASMVNC_CERT"; return 0; }
-  [ -s "$CERT" ] && { KASMVNC_CERT="$CERT"; return 0; }
+  if [ -n "${KASMVNC_CERT:-}" ]; then
+    [ -r "$KASMVNC_CERT" ] || die "KASMVNC_CERT unreadable: $KASMVNC_CERT"
+    return 0
+  fi
+  if [ -s "$CERT" ]; then
+    KASMVNC_CERT="$CERT"
+    return 0
+  fi
   ensure_state_dir
   log "generating a self-signed certificate at $CERT"
   openssl req -x509 -nodes -newkey rsa:2048 -days 3650 -subj "/CN=winforms-wine-runtime" \
@@ -122,13 +132,27 @@ if [ ! -f "${WINEPREFIX}/system.reg" ]; then
   wineboot -u >/tmp/wineboot-runtime.log 2>&1 || true
   "$WINESERVER" -w
 fi
+# Re-apply the CJK mappings and the MSVC DLLs on every start: a prefix created
+# by an older image is missing whatever the current image adds, and the script
+# is idempotent (copies with -f, registry writes with /f).
+/usr/local/bin/wine-setup.sh ||
+  die "wine prefix setup failed; remove or repair ${WINEPREFIX}"
+"$WINESERVER" -w
+# The image links this at build time; recreate it when /wine comes from a volume.
+if [ ! -e "${WINEPREFIX}/drive_c/webview2" ] && [ ! -L "${WINEPREFIX}/drive_c/webview2" ]; then
+  ln -sfn /opt/webview2 "${WINEPREFIX}/drive_c/webview2" ||
+    log "warning: cannot create C:\\webview2 link; pass the runtime path from your app"
+fi
 
 # Self-contained publishes also ship createdump.exe; it is not the app.
 APP="${APP:-$(find /app -maxdepth 1 -type f -iname '*.exe' \
-  ! -iname createdump.exe ! -iname '*.vshost.exe' -printf '%f\n' 2>/dev/null | sort | head -n1)}"
+  ! -iname createdump.exe ! -iname '*.vshost.exe' -printf '%f\n' 2>/dev/null |
+  sort | sed -n '1p')}"
 [ -n "$APP" ] || die "no .exe in /app; set APP=<name.exe>"
 case "$APP" in
-  [A-Za-z]:\\*|/*) APP_PATH="$APP" ;;
+  *\\*|*:*)
+    die "APP must be a name relative to /app or an absolute Linux path, got '$APP'" ;;
+  /*) APP_PATH="$APP" ;;
   *) APP_PATH="/app/$APP" ;;
 esac
 [ -f "$APP_PATH" ] || die "application not found: $APP_PATH"

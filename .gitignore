@@ -18,7 +18,6 @@ artifacts/
 # test evidence
 report.json
 *.png
-!docs/**/*.png
 evidence/
 bench.json
 bench.txt
