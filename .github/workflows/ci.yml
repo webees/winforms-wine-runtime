@@ -132,8 +132,10 @@ jobs:
         run: |
           set -euo pipefail
           # The image must not start without an application.
-          docker run --rm "$IMAGE:ci" >/tmp/noapp.log 2>&1 && {
-            echo "::error::image started with no application"; exit 1; } || true
+          if docker run --rm "$IMAGE:ci" >/tmp/noapp.log 2>&1; then
+            echo "::error::image started with no application"
+            exit 1
+          fi
           grep -q 'no .exe found in /app' /tmp/noapp.log || {
             echo "::error::missing guard for empty /app"; cat /tmp/noapp.log; exit 1; }
 
