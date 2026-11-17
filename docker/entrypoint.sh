@@ -98,11 +98,16 @@ start_desktop() {
   require_uint KASMVNC_QUALITY_MIN "$quality_min"
   require_uint KASMVNC_QUALITY_MAX "$quality_max"
   require_uint KASMVNC_RECT_THREADS "$rect_threads"
-  [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ] ||
+  if [ "$((10#$PORT))" -lt 1 ] || [ "$((10#$PORT))" -gt 65535 ]; then
     die "KASMVNC_PORT must be 1-65535, got '$PORT'"
-  [ "$frame_rate" -ge 1 ] || die "KASMVNC_FRAME_RATE must be at least 1"
-  [ "$quality_min" -le "$quality_max" ] && [ "$quality_max" -le 9 ] ||
+  fi
+  if [ "$((10#$frame_rate))" -lt 1 ]; then
+    die "KASMVNC_FRAME_RATE must be at least 1"
+  fi
+  if [ "$((10#$quality_min))" -gt "$((10#$quality_max))" ] ||
+    [ "$((10#$quality_max))" -gt 9 ]; then
     die "KASMVNC_QUALITY_MIN/MAX must satisfy 0 <= MIN <= MAX <= 9"
+  fi
   case "$prefer_bandwidth" in
     0|1) ;;
     *) die "KASMVNC_PREFER_BANDWIDTH must be 0 or 1, got '$prefer_bandwidth'" ;;
