@@ -16,6 +16,10 @@ on:
         description: Report only, do not delete
         type: boolean
         default: false
+      exclude_tags:
+        description: Comma-separated tags to keep (use __none__ to purge all)
+        default: latest,2
+        required: false
 
 permissions:
   contents: read
@@ -40,7 +44,7 @@ jobs:
           delete-partial-images: true
           keep-n-tagged: ${{ inputs.keep_tagged || 10 }}
           # Keep only the moving aliases; immutable CalVer tags age out.
-          exclude-tags: latest,2
+          exclude-tags: ${{ inputs.exclude_tags || 'latest,2' }}
           validate: false
           dry-run: ${{ inputs.dry_run || false }}
 
