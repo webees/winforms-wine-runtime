@@ -34,7 +34,7 @@ docker run --rm -p 6901:6901 \
 > 任何应用的运行时。`dev` 与 `dev-demo` 仅限本地，不会推送。
 
 > **版本采用 CalVer：** Git 标签为 `vYYYY.MM.DD`，GHCR 标签为
-> `YYYY.MM.DD`。`2` 与 `latest` 是移动别名；生产环境请固定具体日期标签或
+> `YYYY.MM.DD`。只有 `latest` 是移动别名；生产环境请固定具体日期标签或
 > digest。详见 [docs/versioning.md](docs/versioning.md)。
 
 ## 用自己的程序

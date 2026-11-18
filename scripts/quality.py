@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_TEXT_BYTES = 32 * 1024
 SKIP_DIRS = {".git", ".ruff_cache", "__pycache__", "bin", "obj", "publish",
              "node_modules"}
 TEXT_SUFFIXES = {
@@ -178,6 +179,15 @@ def hygiene() -> Dimension:
             dirty.append(str(path.relative_to(ROOT)))
     dim.checks.append(Check("whitespace", "clean whitespace", 2,
                             not dirty, ", ".join(dirty[:5]) or "clean"))
+
+    empty = [str(p.relative_to(ROOT)) for p in tracked_text() if p.stat().st_size == 0]
+    dim.checks.append(Check("empty", "no empty text files", 1,
+                            not empty, ", ".join(empty) or "none"))
+
+    bloated = [str(p.relative_to(ROOT)) for p in tracked_text()
+               if p.stat().st_size > MAX_TEXT_BYTES]
+    dim.checks.append(Check("size", f"text files <= {MAX_TEXT_BYTES // 1024} KiB", 1,
+                            not bloated, ", ".join(bloated) or "within budget"))
     return dim
 
 
@@ -268,6 +278,15 @@ def supply_chain() -> Dimension:
     stages_count = len(re.findall(r"^FROM ", text, re.M))
     dim.checks.append(Check("stages", "multi-stage build", 2, stages_count >= 3,
                             f"{stages_count} stages"))
+
+    bots = read(".github/dependabot.yml")
+    ecosystems = re.findall(r"package-ecosystem:\s*(\S+)", bots)
+    limited = len(re.findall(r"open-pull-requests-limit:\s*\d+", bots)) >= len(ecosystems)
+    grouped = len(re.findall(r"^\s{4}groups:$", bots, re.M)) >= len(ecosystems)
+    dim.checks.append(Check("dependabot-hygiene", "updates grouped and bounded", 4,
+                            {"github-actions", "docker", "nuget"} <= set(ecosystems)
+                            and limited and grouped,
+                            f"{len(ecosystems)} ecosystems"))
     return dim
 
 
@@ -298,6 +317,17 @@ def runtime() -> Dimension:
                             not secrets and not re.search(
                                 r"^COPY .*\.(?:pem|key|crt)\b", text, re.M),
                             "none"))
+
+    window = re.search(r"--start-period=(\d+)s", text)
+    retries = re.search(r"--retries=(\d+)", text)
+    dim.checks.append(Check("healthcheck-window", "health check tolerates boot", 4,
+                            bool(window) and int(window.group(1)) >= 60
+                            and bool(retries) and int(retries.group(1)) >= 3,
+                            "start-period >= 60s, retries >= 3"))
+    warned = re.search(r"KASMVNC_ALLOW_NO_AUTH[^\n]*\n(?:[^\n]*\n)?[^\n]*warning",
+                       entry)
+    dim.checks.append(Check("no-auth-warning", "empty password logs warning", 2,
+                            bool(warned), "warning emitted"))
     return dim
 
 
@@ -325,6 +355,57 @@ def governance() -> Dimension:
     release = latest_release()
     dim.checks.append(Check("security", "supported versions current", 1,
                             release in read("SECURITY.md"), release or "no release"))
+    return dim
+
+
+def release() -> Dimension:
+    dim = Dimension("release")
+    release_yml = read(".github/workflows/release.yml")
+    workflows = "\n".join(p.read_text() for p in sources(".github/workflows/*.yml"))
+
+    aliases = re.findall(r"type=raw,value=([^\s$][^\s]*)", release_yml)
+    moving = [alias for alias in aliases if alias.lower() != "latest"]
+    dim.checks.append(Check("immutable-tags", "no numeric moving aliases", 30,
+                            not moving, ", ".join(moving) or "CalVer + latest"))
+
+    runners = re.findall(r"runs-on:\s*(\S+)", workflows)
+    floating = [runner for runner in runners if runner.endswith("-latest")]
+    dim.checks.append(Check("runner-pinned", "runners pinned by version", 20,
+                            not floating, ", ".join(floating) or "ubuntu-24.04"))
+
+    lines = workflows.splitlines()
+    checkouts = [i for i, line in enumerate(lines) if "actions/checkout@" in line]
+    hardened = all(
+        any("persist-credentials: false" in follow
+            for follow in lines[i + 1:i + 6])
+        for i in checkouts
+    )
+    dim.checks.append(Check("checkout", "checkout drops credentials", 20,
+                            hardened, f"{len(checkouts)} checkout steps"))
+
+    cleanup = read(".github/workflows/cleanup-ghcr.yml")
+    retired = "delete_tags" in cleanup and "'latest,2'" not in cleanup
+    dim.checks.append(Check("cleanup", "retired tags are removable", 15,
+                            retired, "delete_tags input, latest kept"))
+
+    changelog = read("CHANGELOG.md")
+    calver = re.findall(r"^## \[(\d{4}\.\d{2}\.\d{2}(?:\.\d+)?)\] - \d{4}-\d{2}-\d{2}$",
+                        changelog, re.M)
+    dim.checks.append(Check("changelog", "Keep a Changelog + CalVer", 15,
+                            "## [Unreleased]" in changelog and bool(calver),
+                            f"{len(calver)} dated releases"))
+    unguarded = [p.name for p in sources(".github/workflows/*.yml")
+                 if not re.search(r"^permissions:", p.read_text(), re.M)]
+    write_all = [p.name for p in sources(".github/workflows/*.yml")
+                 if "permissions: write-all" in p.read_text()]
+    dim.checks.append(Check("permissions", "workflow tokens scoped", 10,
+                            not unguarded and not write_all,
+                            ", ".join(unguarded + write_all) or "all scoped"))
+    guarded = re.search(r"if: github\.event_name == 'workflow_dispatch'"
+                        r"[^\n]*delete_tags", cleanup)
+    dim.checks.append(Check("guarded-delete", "tag deletion is manual only", 15,
+                            bool(guarded) and "dry_run" in cleanup,
+                            "workflow_dispatch + dry run"))
     return dim
 
 
@@ -357,7 +438,7 @@ def docs() -> Dimension:
                             result.returncode == 0, tail[-1] if tail else "docs-chk"))
     rubric = read("docs/quality.md")
     names = ["hygiene", "shell", "python", "supply-chain", "runtime",
-             "governance", "docs", "verification"]
+             "governance", "release", "docs", "verification"]
     dim.checks.append(Check("rubric", "rubric documented", 2,
                             all(name in rubric for name in names) and "100" in rubric,
                             "docs/quality.md"))
@@ -367,6 +448,34 @@ def docs() -> Dimension:
     dim.checks.append(Check("version", "release references current", 3,
                             bool(release) and all(v == release for v in stale),
                             f"{len(stale)} refs at {release}"))
+
+    markdown = [p for p in tracked_text() if p.suffix == ".md"]
+    broken = []
+    for path in markdown:
+        for target in re.findall(r"\]\(([^)#\s]+)", path.read_text(errors="replace")):
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            if not (path.parent / target).resolve().exists():
+                broken.append(f"{path.relative_to(ROOT)} -> {target}")
+    dim.checks.append(Check("links", "relative links resolve", 4,
+                            not broken, ", ".join(broken[:3]) or "all resolve"))
+
+    def env_keys(text: str, heading: str) -> list[str]:
+        section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        return re.findall(r"^\| `([A-Z0-9_]+)`", section, re.M)
+
+    en_keys = env_keys(en, "## Environment")
+    zh_keys = env_keys(zh, "## 环境变量")
+    dim.checks.append(Check("env-parity", "environment tables match", 4,
+                            bool(en_keys) and en_keys == zh_keys,
+                            f"{len(en_keys)} variables"))
+
+    alias = [p.relative_to(ROOT).as_posix() for p in markdown
+             if p.name != "CHANGELOG.md"
+             if re.search(r"`2` and `latest`|winforms-wine-runtime:2\b",
+                          p.read_text(errors="replace"))]
+    dim.checks.append(Check("alias", "retired aliases are gone", 4,
+                            not alias, ", ".join(alias) or "no stale alias"))
     return dim
 
 
@@ -390,11 +499,18 @@ def verification() -> Dimension:
     dim.checks.append(Check("ci", "quality gate in CI", 2,
                             "scripts/quality.py" in read(".github/workflows/ci.yml"),
                             "ci.yml"))
+    selftest = read("scripts/selftest.sh")
+    dim.checks.append(Check("strict", "self-test runs in strict mode", 4,
+                            "--strict" in selftest and "rc=$?" in selftest,
+                            "strict exit code"))
+    dim.checks.append(Check("gate", "lint runs the quality gate", 4,
+                            "quality" in makefile.split("lint:", 1)[1].split("\n\n", 1)[0],
+                            "make lint -> quality"))
     return dim
 
 
-BUILDERS = (hygiene, shell, python, supply_chain, runtime, governance, docs,
-            verification)
+BUILDERS = (hygiene, shell, python, supply_chain, runtime, governance, release,
+            docs, verification)
 
 
 def report() -> dict:

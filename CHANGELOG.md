@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows
 - `scripts/test_quality.py` unit-tests the rubric, and CI uploads
   `quality.json` as an artifact.
 - `pyproject.toml` pins the `ruff` configuration used by `make lint`.
+- The rubric now also checks empty/bloated files, Dependabot grouping and PR
+  limits, the health-check boot window, the no-password warning, scoped
+  workflow tokens, manual-only tag deletion, Markdown link integrity,
+  environment-table parity and the retired `2` alias.
 
 ### Changed
 
@@ -28,6 +32,8 @@ All notable changes to this project are documented here. The format follows
   suites.
 - Both READMEs start with a language switch and share the same section set;
   release references are updated to `2026.11.17.1`.
+- The `2` moving alias is no longer published or documented. The cleanup
+  workflow can unlink retired tags on manual dispatch, with a `dry_run` input.
 
 ## [2026.11.17.1] - 2026-11-17
 

@@ -60,11 +60,14 @@ for f in README.md README.zh-CN.md docs/ports-and-volumes.md examples/docker-com
   grep -q "$port" "$f" || bad "$f does not mention port $port"
 done
 
-# Relative links in Markdown must resolve.
-while IFS= read -r link; do
-  [ -e "$link" ] || bad "broken link: $link"
-done < <(grep -rhoE '\]\([^)#][^)]*\)' README.md README.zh-CN.md docs/*.md |
-  sed -E 's/^\]\(//; s/\)$//' | grep -vE '^(https?|mailto|#)' | sort -u)
+# Relative links in Markdown must resolve against the linking file's directory.
+for doc in README.md README.zh-CN.md docs/*.md; do
+  dir=$(dirname "$doc")
+  while IFS= read -r link; do
+    [ -e "$dir/$link" ] || bad "broken link in $doc: $link"
+  done < <(grep -oE '\]\([^)#][^)]*\)' "$doc" |
+    sed -E 's/^\]\(//; s/\)$//' | grep -vE '^(https?|mailto|#)')
+done
 
 # The scoring table in docs/benchmark.md must match scripts/score.py.
 PYTHONDONTWRITEBYTECODE=1 python3 -B - <<'PY' || fail=1

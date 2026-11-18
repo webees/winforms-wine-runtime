@@ -3,7 +3,7 @@
 The runtime is measured by `scripts/bench.sh` and graded by `scripts/score.py`.
 Both run against a built image; the demo target is required because the
 self-test is part of the score. Engineering quality is a separate 100-point
-gate in [docs/quality.md](docs/quality.md); releases require both — quality at 100 and
+gate in [docs/quality.md](quality.md); releases require both — quality at 100 and
 performance at least 90, with 100 as the target.
 
 ```bash
