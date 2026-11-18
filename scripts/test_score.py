@@ -57,46 +57,46 @@ class RubricTest(unittest.TestCase):
         self.assertEqual(len(rows), 9)
 
     def test_self_test_is_a_hard_dimension(self) -> None:
-        self.assertEqual(points()["self-test"], 40)
-        self.assertEqual(points(selftest_steps=3)["self-test"], 20)
+        self.assertEqual(points()["self-test"], 100)
+        self.assertEqual(points(selftest_steps=3)["self-test"], 50)
         self.assertEqual(points(selftest_ok=False)["self-test"], 0)
 
     def test_basic_auth(self) -> None:
-        self.assertEqual(points()["basic auth"], 8)
+        self.assertEqual(points()["basic auth"], 100)
         self.assertEqual(points(anon_status=200)["basic auth"], 0)
 
     def test_auth_guard(self) -> None:
-        self.assertEqual(points()["auth guard"], 6)
+        self.assertEqual(points()["auth guard"], 100)
         self.assertEqual(points(auth_guard="")["auth guard"], 0)
 
     def test_tls_default(self) -> None:
-        self.assertEqual(points()["TLS default"], 6)
+        self.assertEqual(points()["TLS default"], 100)
         self.assertEqual(points(plain_on_tls_port=200)["TLS default"], 0)
         self.assertEqual(points(tls_status=0)["TLS default"], 0)
 
     def test_cold_start_bands(self) -> None:
-        self.assertEqual(points(start_ms=10_000)["cold start"], 8)
-        self.assertEqual(points(start_ms=10_001)["cold start"], 4)
+        self.assertEqual(points(start_ms=10_000)["cold start"], 100)
+        self.assertEqual(points(start_ms=10_001)["cold start"], 50)
         self.assertEqual(points(start_ms=20_001)["cold start"], 0)
 
     def test_first_window_bands(self) -> None:
-        self.assertEqual(points(app_ms=25_000)["first window"], 10)
-        self.assertEqual(points(app_ms=25_001)["first window"], 5)
+        self.assertEqual(points(app_ms=25_000)["first window"], 100)
+        self.assertEqual(points(app_ms=25_001)["first window"], 50)
         self.assertEqual(points(app_ms=40_001)["first window"], 0)
 
     def test_idle_memory_bands(self) -> None:
-        self.assertEqual(points(idle_rss_kb=350 * KIB_PER_MIB)["idle memory"], 7)
-        self.assertEqual(points(idle_rss_kb=350 * KIB_PER_MIB + 1)["idle memory"], 4)
+        self.assertEqual(points(idle_rss_kb=350 * KIB_PER_MIB)["idle memory"], 100)
+        self.assertEqual(points(idle_rss_kb=350 * KIB_PER_MIB + 1)["idle memory"], 50)
         self.assertEqual(points(idle_rss_kb=600 * KIB_PER_MIB + 1)["idle memory"], 0)
 
     def test_image_size_bands(self) -> None:
-        self.assertEqual(points(size_bytes=int(4.5 * GIB))["image size"], 10)
-        self.assertEqual(points(size_bytes=int(4.5 * GIB) + 1)["image size"], 6)
-        self.assertEqual(points(size_bytes=int(5.5 * GIB) + 1)["image size"], 3)
+        self.assertEqual(points(size_bytes=int(4.5 * GIB))["image size"], 100)
+        self.assertEqual(points(size_bytes=int(4.5 * GIB) + 1)["image size"], 60)
+        self.assertEqual(points(size_bytes=int(5.5 * GIB) + 1)["image size"], 30)
         self.assertEqual(points(size_bytes=int(6.5 * GIB) + 1)["image size"], 0)
 
     def test_desktop(self) -> None:
-        self.assertEqual(points()["desktop"], 5)
+        self.assertEqual(points()["desktop"], 100)
         self.assertEqual(points(x_display="no")["desktop"], 0)
 
 

@@ -36,19 +36,21 @@ The report is plain JSON, so a baseline can be stored and compared in review.
 
 ## Scoring
 
-100 points, higher is better. The score is a release gate: below 90 fails.
+Every dimension is scored out of **100**; the overall score is the mean of the
+nine dimensions, so 100 requires all nine at 100. The score is a release gate:
+below 90 fails.
 
-| Dimension | Max | Full marks | Partial |
-|---|---|---|---|
-| Self-test | 40 | 4/4 steps pass | 0 if any step fails; 20 if fewer than 4 steps are recorded |
-| Basic auth | 8 | anonymous request returns 401 | – |
-| Auth guard | 6 | container refuses to start without a password | – |
-| TLS default | 6 | HTTPS 200 and plaintext rejected | – |
-| Cold start | 8 | ≤ 10 s to HTTP 200 | 4 at ≤ 20 s |
-| First window | 10 | ≤ 25 s to a visible application window | 5 at ≤ 40 s |
-| Idle memory | 7 | ≤ 350 MiB per container | 4 at ≤ 600 MiB |
-| Image size | 10 | ≤ 4.5 GiB | 6 at ≤ 5.5 GiB, 3 at ≤ 6.5 GiB |
-| Desktop | 5 | X display answers | – |
+| Dimension | Full marks | Partial |
+|---|---|---|
+| Self-test | 4/4 steps pass | 0 if any step fails; 50 if fewer than 4 steps are recorded |
+| Basic auth | anonymous request returns 401 | – |
+| Auth guard | container refuses to start without a password | – |
+| TLS default | HTTPS 200 and plaintext rejected | – |
+| Cold start | ≤ 10 s to HTTP 200 | 50 at ≤ 20 s |
+| First window | ≤ 25 s to a visible application window | 50 at ≤ 40 s |
+| Idle memory | ≤ 350 MiB per container | 50 at ≤ 600 MiB |
+| Image size | ≤ 4.5 GiB | 60 at ≤ 5.5 GiB, 30 at ≤ 6.5 GiB |
+| Desktop | X display answers | – |
 
 A: ≥ 90, B: ≥ 75, C: ≥ 60, D: below.
 

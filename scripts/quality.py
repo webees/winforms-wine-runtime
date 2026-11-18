@@ -64,6 +64,11 @@ class Dimension:
     def budget(self) -> int:
         return sum(c.points for c in self.checks)
 
+    @property
+    def score(self) -> int:
+        """Dimension score out of 100, floored so a miss never rounds up."""
+        return self.earned * 100 // self.budget if self.budget else 0
+
 
 @cache
 def read(rel: str) -> str:
@@ -394,15 +399,14 @@ BUILDERS = (hygiene, shell, python, supply_chain, runtime, governance, docs,
 
 def report() -> dict:
     dims = [build() for build in BUILDERS]
-    earned = sum(d.earned for d in dims)
-    budget = sum(d.budget for d in dims)
+    scores = [d.score for d in dims]
+    total = sum(scores) // len(scores) if scores else 0
     return {
-        "score": round(earned / budget * 100) if budget else 0,
-        "earned": earned,
-        "budget": budget,
+        "score": total,
         "dimensions": [
             {
                 "name": d.name,
+                "score": d.score,
                 "earned": d.earned,
                 "budget": d.budget,
                 "checks": [
@@ -416,6 +420,16 @@ def report() -> dict:
     }
 
 
+def render(data: dict) -> None:
+    print(f"{'dimension':<16}{'score':>6}/100")
+    for dim in data["dimensions"]:
+        print(f"{dim['name']:<16}{dim['score']:>6}")
+        for item in dim["checks"]:
+            if not item["ok"]:
+                print(f"  FAIL {item['id']}: {item['detail']}")
+    print(f"{'TOTAL':<16}{data['score']:>6}/100")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Grade repository quality.")
     parser.add_argument("--min", type=int, default=100,
@@ -427,14 +441,7 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(json.dumps(data, indent=2) + "\n",
                                    encoding="utf-8")
-    print(f"{'dimension':<16}{'score':>6}{'max':>6}")
-    for dim in data["dimensions"]:
-        print(f"{dim['name']:<16}{dim['earned']:>6}{dim['budget']:>6}")
-        for item in dim["checks"]:
-            if not item["ok"]:
-                print(f"  FAIL {item['id']}: {item['detail']}")
-    print(f"{'TOTAL':<16}{data['earned']:>6}{data['budget']:>6}  "
-          f"-> {data['score']}/100")
+    render(data)
     if data["score"] < args.min:
         print(f"quality: FAILED ({data['score']} < {args.min})", file=sys.stderr)
         return 1

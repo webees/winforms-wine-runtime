@@ -78,10 +78,12 @@ from score import score
 text = Path("docs/benchmark.md").read_text()
 failed = False
 section = re.search(r"^## Scoring$(.*?)^## ", text, re.S | re.M)
-documented = dict(
-    (name.strip().lower(), int(points))
-    for name, points in re.findall(r"^\| ([A-Za-z][A-Za-z -]*) \| (\d+) \|", section.group(1) if section else "", re.M)
-)
+documented = {
+    name.strip().lower()
+    for name in re.findall(r"^\| ([A-Za-z][A-Za-z -]*) \|",
+                           section.group(1) if section else "", re.M)
+    if name.strip().lower() != "dimension"
+}
 
 # Every metric bench.sh emits must be documented, and score.py must not read a
 # key the report never contains. bench.sh declares its keys on one marker line
@@ -112,11 +114,13 @@ if total != 100:
     print(f"docs-chk: score.py gives {total}/100 to a perfect image", file=sys.stderr)
     failed = True
 for name, _, maximum, _ in rows:
-    if documented.get(name.lower()) != maximum:
-        print(f"docs-chk: docs/benchmark.md scores '{name}' at {documented.get(name.lower())}, score.py uses {maximum}",
-              file=sys.stderr)
+    if name.lower() not in documented:
+        print(f"docs-chk: docs/benchmark.md is missing dimension '{name}'", file=sys.stderr)
         failed = True
-if len(documented) != len(rows):
+    if maximum != 100:
+        print(f"docs-chk: score.py dimension '{name}' is not out of 100", file=sys.stderr)
+        failed = True
+if documented != {name.lower() for name, _, _, _ in rows}:
     print("docs-chk: docs/benchmark.md and score.py disagree on the scored dimensions", file=sys.stderr)
     failed = True
 
