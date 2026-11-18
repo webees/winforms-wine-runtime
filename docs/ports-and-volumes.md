@@ -109,7 +109,7 @@ services:
     environment:
       ENABLE_VNC: "1"
       VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
-      SCREEN: 1920x1080x24
+      SCREEN: 1280x720x24
     volumes:
       - wine-prefix:/wine
       - app-data:/data

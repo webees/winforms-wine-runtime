@@ -15,11 +15,11 @@ without extra privileges. Tune the host once and the image knobs per workload.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `SCREEN` | `1600x900x24` | Fewer pixels is the cheapest bandwidth win |
-| `KASMVNC_FRAME_RATE` | `30` | Upper bound on updates per second; KasmVNC's own default is 60 |
-| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | JPEG/WebP quality, 0-9; higher is sharper and larger |
-| `KASMVNC_PREFER_BANDWIDTH` | `0` | `1` lets the encoder trade quality for bytes |
-| `KASMVNC_RECT_THREADS` | `0` | Encoder threads, `0` = automatic |
+| `SCREEN` | `1280x720x24` | Fewer pixels is the cheapest bandwidth win while keeping text readable |
+| `KASMVNC_FRAME_RATE` | `15` | Upper bound on updates per second; KasmVNC's own default is 60 |
+| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `5` / `8` | Dynamic JPEG/WebP quality, 0-9; the range adapts to the link |
+| `KASMVNC_PREFER_BANDWIDTH` | `1` | `1` lets the encoder trade quality for bytes |
+| `KASMVNC_RECT_THREADS` | `1` | Encoder thread count, `0` = automatic |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto` or an explicit `h264` / `h265` / `av1` variant |
 
 Presets:
@@ -28,7 +28,7 @@ Presets:
 |---|---|
 | LAN, < 20 ms | `KASMVNC_FRAME_RATE=60 KASMVNC_QUALITY_MIN=8 KASMVNC_QUALITY_MAX=9` |
 | Internet, 30-150 ms | defaults |
-| Lossy or metered | `KASMVNC_FRAME_RATE=15 KASMVNC_PREFER_BANDWIDTH=1 KASMVNC_QUALITY_MAX=7` + `SCREEN=1280x720x24` |
+| LAN, high-fidelity UI | `KASMVNC_FRAME_RATE=60 KASMVNC_QUALITY_MIN=8 KASMVNC_QUALITY_MAX=9 KASMVNC_RECT_THREADS=0` + `SCREEN=1600x900x24` |
 
 `KASMVNC_FRAME_RATE` only caps updates; a static WinForms window sends
 nothing, so a higher cap costs nothing while the UI is idle.

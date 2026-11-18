@@ -26,18 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_TEXT_BYTES = 32 * 1024
 SKIP_DIRS = {".git", ".ruff_cache", "__pycache__", "bin", "obj", "publish",
              "node_modules"}
-TEXT_SUFFIXES = {
-    "",
-    ".cfg",
-    ".json",
-    ".md",
-    ".py",
-    ".sh",
-    ".toml",
-    ".txt",
-    ".yaml",
-    ".yml",
-}
+TEXT_SUFFIXES = {"", ".cfg", ".json", ".md", ".py", ".sh", ".toml", ".txt",
+                 ".yaml", ".yml"}
 NAME = re.compile(r"^\.?[a-z0-9][a-z0-9.-]*$")
 PY_NAME = re.compile(r"^[a-z][a-z0-9_]*\.py$")
 TEMPLATE_NAME = re.compile(r"^[a-z][a-z0-9_]*\.yml$")
@@ -143,23 +133,13 @@ def latest_release() -> str:
     return match.group(1) if match else ""
 
 
-README_SECTIONS = [
-    ("Why", "为什么"),
-    ("Quick start", "快速开始"),
+README_SECTIONS = [("Why", "为什么"), ("Quick start", "快速开始"),
     ("Use it for your own application", "用自己的程序"),
-    ("Ports", "端口"),
-    ("Persistence", "持久化"),
-    ("Environment", "环境变量"),
+    ("Ports", "端口"), ("Persistence", "持久化"), ("Environment", "环境变量"),
     ("WebView2: one required line of code", "WebView2：必须写的一行代码"),
-    ("WebView2 version policy", "WebView2 版本策略"),
-    ("What is verified", "已验证"),
-    ("Limits", "限制"),
-    ("Security", "安全"),
-    ("Build arguments", "构建参数"),
-    ("Build locally", "本地构建"),
-    ("Documentation", "文档"),
-    ("License", "许可"),
-]
+    ("WebView2 version policy", "WebView2 版本策略"), ("What is verified", "已验证"),
+    ("Limits", "限制"), ("Security", "安全"), ("Build arguments", "构建参数"),
+    ("Build locally", "本地构建"), ("Documentation", "文档"), ("License", "许可")]
 
 
 def h2(text: str) -> list[str]:
@@ -174,20 +154,10 @@ def long_lines(paths: list[Path], limit: int) -> list[str]:
 
 def hygiene() -> Dimension:
     dim = Dimension("hygiene")
-    required = [
-        "README.md",
-        "README.zh-CN.md",
-        "LICENSE",
-        "SECURITY.md",
-        "CONTRIBUTING.md",
-        "CODE_OF_CONDUCT.md",
-        "CHANGELOG.md",
-        "THIRD-PARTY-NOTICES.md",
-        ".gitignore",
-        ".dockerignore",
-        ".editorconfig",
-        "Makefile",
-    ]
+    required = ["README.md", "README.zh-CN.md", "LICENSE", "SECURITY.md",
+                "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "CHANGELOG.md",
+                "THIRD-PARTY-NOTICES.md", ".gitignore", ".dockerignore",
+                ".editorconfig", "Makefile"]
     missing = [name for name in required if not (ROOT / name).is_file()]
     dim.checks.append(Check("files", "required files", 4, not missing,
                             ", ".join(missing) or "all present"))
@@ -221,7 +191,8 @@ def hygiene() -> Dimension:
     dim.checks.append(Check("whitespace", "clean whitespace", 2,
                             not dirty, ", ".join(dirty[:5]) or "clean"))
 
-    empty = [str(p.relative_to(ROOT)) for p in tracked_text() if p.stat().st_size == 0]
+    empty = [str(p.relative_to(ROOT)) for p in tracked_text()
+             if p.stat().st_size == 0]
     dim.checks.append(Check("empty", "no empty text files", 1,
                             not empty, ", ".join(empty) or "none"))
 
@@ -524,12 +495,16 @@ def docs() -> Dimension:
     code_vars = set(re.findall(r"\$\{([A-Z][A-Z0-9_]*):-", entry)) - {
         "BASH_SOURCE", "HOME", "PATH", "PWD", "DISPLAY", "WINEPREFIX",
         "WINESERVER", "LANG"}
+    env = dict(re.findall(r"^ENV ([A-Z0-9_]+)=([^\s\\]+)", dockerfile, re.M))
+    docs_env = dict(re.findall(r"^\| `([A-Z0-9_]+)` \| `([^`]+)`", en, re.M))
+    profile = [key for key, value in env.items() if docs_env.get(key) != value]
     unused = sorted(v for v in en_keys if not v.startswith("WEBVIEW2_")
                     and v not in entry + dockerfile)
     undocumented = sorted(code_vars - set(en_keys)) + sorted(code_vars - set(zh_keys))
     dim.checks.append(Check("env-docs", "runtime variables documented", 4,
-                            not undocumented and not unused,
-                            ", ".join(undocumented + unused) or f"{len(code_vars)} variables"))
+                            not undocumented and not unused and not profile,
+                            ", ".join(undocumented + unused + profile)
+                            or f"{len(code_vars)} variables"))
 
     build = en.split("## Build arguments", 1)[1].split("\n## ", 1)[0]
     doc_args = set(re.findall(r"^\| `([A-Z][A-Z0-9_]*)`", build, re.M))
@@ -697,9 +672,8 @@ def render(data: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Grade repository quality.")
-    parser.add_argument("--min", type=int, default=100,
-                        help="fail below this score (default: 100)")
-    parser.add_argument("--json", metavar="PATH", help="write the report as JSON")
+    parser.add_argument("--min", type=int, default=100)
+    parser.add_argument("--json")
     args = parser.parse_args()
 
     data = report()

@@ -45,7 +45,7 @@ internal sealed class MainForm : UIForm
     private void BuildUi()
     {
         Text = "winforms-wine-runtime self-test";
-        Size = new Size(1440, 900);
+        Size = new Size(1280, 720);
         StartPosition = FormStartPosition.CenterScreen;
         Style = UIStyle.Blue;
 
@@ -75,7 +75,7 @@ internal sealed class MainForm : UIForm
         {
             Text = "重新自检",
             Size = new Size(120, 36),
-            Location = new Point(1280, 32),
+            Location = new Point(1120, 32),
             Anchor = AnchorStyles.Top | AnchorStyles.Right
         };
         runButton.Click += async (_, _) => await RunSelfTestAsync();

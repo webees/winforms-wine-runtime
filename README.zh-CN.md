@@ -25,7 +25,8 @@ docker run --rm -p 6901:6901 \
   ghcr.io/webees/winforms-wine-runtime:dev-demo
 ```
 
-打开 <https://localhost:6901>，接受自签证书，输入密码，即可看到自检程序。
+打开 <https://localhost:6901>，接受自签证书，输入密码，即可看到 1280×720
+桌面中的自检程序。
 若前置了负责 TLS 的反向代理，设置 `-e KASMVNC_SSL=0`。
 
 > GHCR 上发布的是运行时镜像（`ghcr.io/webees/winforms-wine-runtime`），
@@ -92,9 +93,10 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
+| `LANG` | `C.UTF-8` | Wine 及其辅助进程使用的区域设置 |
 | `APP` | `/app` 下第一个 `*.exe` | 启动的可执行文件：`/app` 下的裸文件名或 Linux 绝对路径；不接受 `C:\...` 这类 Windows 路径 |
 | `APP_ARGS` | 空 | 额外参数，按空白切分，不支持引号 |
-| `SCREEN` | `1600x900x24` | 桌面分辨率与色深 |
+| `SCREEN` | `1280x720x24` | 桌面分辨率与色深 |
 | `ENABLE_VNC` | `0` | `1` 启动 KasmVNC |
 | `VNC_PASSWORD` | 空 | HTTP Basic 密码，至少 6 位 |
 | `KASMVNC_PORT` | `6901` | 网页、WebSocket 与桌面端口 |
@@ -102,11 +104,11 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `KASMVNC_SSL` | `1` | `1` 用自签证书提供 HTTPS |
 | `KASMVNC_CERT` | 空 | 包含证书与私钥的 PEM，覆盖自签证书 |
 | `KASMVNC_ALLOW_NO_AUTH` | `0` | `1` 允许无认证桌面 |
-| `KASMVNC_FRAME_RATE` | `30` | 编码帧率上限 |
-| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | 动态 JPEG/WebP 质量下限与上限（0–9） |
+| `KASMVNC_FRAME_RATE` | `15` | 编码帧率上限 |
+| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `5` / `8` | 动态 JPEG/WebP 质量下限与上限（0–9） |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`、`h264`、`h265`、`av1` 或对应的 `*_vaapi` |
-| `KASMVNC_RECT_THREADS` | `0` | 编码线程数，`0` 表示自动 |
-| `KASMVNC_PREFER_BANDWIDTH` | `0` | `1` 时牺牲画质换带宽（更低质量档、更强压缩） |
+| `KASMVNC_RECT_THREADS` | `1` | 编码线程数，`0` 表示自动 |
+| `KASMVNC_PREFER_BANDWIDTH` | `1` | `1` 时牺牲画质换带宽（更低质量档、更强压缩） |
 | `WEBVIEW2_USER_DATA_FOLDER` | 空 | 镜像不设置；应用应自行向 `CreateAsync` 传 `userDataFolder`（自检程序用 `Z:\data\wv2`） |
 
 自动探测只扫描 `/app` 顶层（不递归），并跳过 `createdump.exe`、`*.vshost.exe`
