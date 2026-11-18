@@ -14,7 +14,7 @@ help:
 	  '  test         run the self-test suite in a container' \
 	  '  bench        measure image, start time, memory; write bench.json' \
 	  '  score        grade bench.json against docs/benchmark.md' \
-	  '  version      print the next CalVer tag for today (UTC)' \
+	  '  version      print the next CalVer tag for today (Asia/Shanghai)' \
 	  '  version-check validate TAG as CalVer' \
 	  '  baseline     tracked file, line and byte totals' \
 	  '  quality      grade the repository against docs/quality.md' \
