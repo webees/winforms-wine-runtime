@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Pushes to `main` with new `Unreleased` entries open a `chore(release): v<version>`
+  pull request; merging it tags and publishes the image, release and attestation.
+  `scripts/version.sh bump` moves the entries and pinned references.
 - `scripts/quality.py` grades the repository against a 100-point rubric
   covering hygiene, shell, Python, supply chain, runtime hardening,
   governance, documentation, verification and leanness. `docs/quality.md`
@@ -23,6 +26,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The default desktop is a low-bandwidth profile: `1280x720x24`, 15 fps, dynamic
+  quality 5-8, one encoder thread and bandwidth preference; the self-test matches.
 - Every dimension in both rubrics is now scored out of 100 and the overall
   score is their mean, so 100 requires every dimension at 100.
 - Base images are pinned by digest (`UBUNTU_DIGEST`, `DOTNET_SDK_DIGEST`), and

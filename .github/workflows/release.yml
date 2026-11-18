@@ -2,28 +2,73 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing CalVer tag, e.g. v2026.11.17
+        description: Existing CalVer tag, e.g. v2026.11.18
         required: true
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
+permissions: {contents: read}
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  verify:
-    name: verify tag
+  prepare:
+    if: github.event_name == 'push' && github.ref_type == 'branch'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      mode: ${{ steps.decide.outputs.mode }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: {fetch-depth: 0, persist-credentials: false}
+      - id: decide
+        env: {GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote set-url origin \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          mode=none tag=''
+          subject="$(git log -1 --format=%s)"
+          if [[ "$subject" == 'chore(release): '* ]]; then
+            tag="v${subject#chore(release): }"
+            git tag -a "$tag" -m "${tag#v}" && git push origin "$tag"
+            mode='tag'
+          elif awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit}
+                    f&&/^- /{found=1} END{exit !found}' CHANGELOG.md &&
+               [ -z "$(gh pr list --state open --json headRefName \
+            --jq '.[]|select(.headRefName|startswith("release/"))')" ]; then
+            version="$(./scripts/version.sh next)"; version="${version#v}"
+            ./scripts/version.sh bump "$version"
+            git switch -c "release/v$version"
+            git commit -am "chore(release): $version"
+            git push origin "release/v$version"
+            gh pr create --base main --head "release/v$version" \
+              --title "chore(release): v$version" \
+              --body "Merging this tags \`v$version\` and publishes it to GHCR."
+            mode='pr'
+          fi
+          printf 'mode=%s\n' "$mode" >>"$GITHUB_OUTPUT"
+          [ -z "$tag" ] || echo "tag=$tag" >>"$GITHUB_OUTPUT"
+  verify:
+    if: always() && !cancelled() && (github.event_name != 'push' || github.ref_type == 'tag' || needs.prepare.outputs.mode == 'tag')
+    needs: prepare
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
@@ -31,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.tag || inputs.tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -39,7 +84,7 @@ jobs:
         name: resolve version
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ needs.prepare.outputs.tag || inputs.tag || github.ref_name }}"
           version="$(./scripts/version.sh check "$tag")"
           release_date="$(printf '%s' "$version" | cut -d. -f1-3 | tr . -)"
           heading="## [$version] - $release_date"
