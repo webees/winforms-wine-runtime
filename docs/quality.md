@@ -1,7 +1,8 @@
 # Quality score
 
 Engineering quality is graded by `scripts/quality.py`; runtime performance is
-graded by `scripts/score.py`. Both use a 100-point rubric and both must report
+graded by `scripts/score.py`. In both rubrics every dimension is scored out of
+100 and the overall score is the mean of the dimensions, so both must report
 100 before a release.
 
 | Axis | Script | Input | Question |
@@ -15,9 +16,11 @@ and reproducible on a laptop.
 
 ## Scoring
 
-Each check carries points; a dimension scores the sum of passing checks. The
-total is the weighted sum of all dimensions (budget 100). A run below `--min`
-(default `100`) exits non-zero and prints every failing check with evidence.
+Every dimension is scored out of **100**: its checks carry points, and the
+dimension score is the share of those points that pass. The repository score is
+the mean of the eight dimension scores, so **100 requires every dimension at
+100**. A run below `--min` (default `100`) exits non-zero and prints every
+failing check with evidence.
 
 ```
 make quality                      # human-readable table, fails below 100
@@ -26,16 +29,16 @@ make quality                      # human-readable table, fails below 100
 
 ## Dimensions
 
-| Dimension | Max | What it proves |
+| Dimension | Score | What it proves |
 |---|---|---|
-| `hygiene` | 10 | Required community files, no generated artifacts, no TODO markers, clean whitespace |
-| `shell` | 12 | `set -euo pipefail`, exec bits, 120-column limit, no `eval`/pipe-to-shell, header comment |
-| `python` | 8 | shebang and exec bit, 100-column limit, module docstring, `__main__` entry |
-| `supply-chain` | 20 | Base images pinned by digest, downloads checksum-verified, actions pinned to commit SHAs, apt lists removed, multi-stage build |
-| `runtime` | 15 | `tini` as PID 1, health check, one exposed port, TLS on by default, fail-closed authentication, no secrets baked in |
-| `governance` | 10 | Least-privilege token, run cancellation, Dependabot coverage, CODEOWNERS, PR/issue templates, cleanup workflows, supported version |
-| `docs` | 15 | Language switch and bilingual parity, code/docs agreement, documented rubric, current release references |
-| `verification` | 10 | Rubric unit tests, self-test harness, Make targets, quality gate in CI |
+| `hygiene` | 100 | Required community files, no generated artifacts, no TODO markers, clean whitespace |
+| `shell` | 100 | `set -euo pipefail`, exec bits, 120-column limit, no `eval`/pipe-to-shell, header comment |
+| `python` | 100 | shebang and exec bit, 100-column limit, module docstring, `__main__` entry |
+| `supply-chain` | 100 | Base images pinned by digest, downloads checksum-verified, actions pinned to commit SHAs, apt lists removed, multi-stage build |
+| `runtime` | 100 | `tini` as PID 1, health check, one exposed port, TLS on by default, fail-closed authentication, no secrets baked in |
+| `governance` | 100 | Least-privilege token, run cancellation, Dependabot coverage, CODEOWNERS, PR/issue templates, cleanup workflows, supported version |
+| `docs` | 100 | Language switch and bilingual parity, code/docs agreement, documented rubric, current release references |
+| `verification` | 100 | Rubric unit tests, self-test harness, Make targets, quality gate in CI |
 
 ## Check rules
 
@@ -97,5 +100,5 @@ performance score. Releases require both at 100.
 
 1. Add or adjust the check in `scripts/quality.py`.
 2. Update this document and `scripts/test_quality.py` in the same commit.
-3. Keep the budget at 100 points and let `make quality` prove the repository
-   still scores 100.
+3. Keep every dimension at 100 points and let `make quality` prove the
+   repository still scores 100.

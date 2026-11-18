@@ -24,6 +24,12 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(len(english), len(set(english)))
         self.assertEqual(len(chinese), len(set(chinese)))
 
+    def test_dimension_score_is_normalised(self) -> None:
+        dim = quality.Dimension("sample")
+        dim.checks.append(quality.Check("a", "pass", 3, True))
+        dim.checks.append(quality.Check("b", "fail", 1, False))
+        self.assertEqual(dim.score, 75)
+
 
 class ParsingTests(unittest.TestCase):
     def test_h2_ignores_deeper_headings(self) -> None:
@@ -43,9 +49,9 @@ class ParsingTests(unittest.TestCase):
 class RubricTests(unittest.TestCase):
     def test_budget_is_one_hundred(self) -> None:
         data = quality.report()
-        self.assertEqual(data["budget"], 100)
         for dim in data["dimensions"]:
             self.assertGreater(dim["budget"], 0, dim["name"])
+        self.assertEqual(sum(dim["budget"] for dim in data["dimensions"]), 100)
 
     def test_repository_scores_one_hundred(self) -> None:
         data = quality.report()
@@ -56,6 +62,8 @@ class RubricTests(unittest.TestCase):
             if not item["ok"]
         ]
         self.assertEqual(data["score"], 100, "\n".join(failures))
+        for dim in data["dimensions"]:
+            self.assertEqual(dim["score"], 100, dim["name"])
 
 
 if __name__ == "__main__":
