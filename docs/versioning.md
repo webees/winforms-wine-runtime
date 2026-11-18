@@ -20,8 +20,8 @@ test before rolling it out.
 
 | Ref | Example | Meaning |
 |---|---|---|
-| Git tag | `v2026.11.17.1` | Canonical release, immutable |
-| Image tag | `2026.11.17.1` | Canonical image, immutable |
+| Git tag | `v<version>` | Canonical release, immutable |
+| Image tag | `<version>` | Canonical image, immutable |
 | Image alias | `latest` | Newest release (moves) |
 | Local tag | `dev`, `dev-demo` | Local builds only, never published |
 
@@ -29,7 +29,7 @@ The `latest` alias is a convenience, not a reproducible pin. Production
 deployments should use an exact date tag or, better, its digest:
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17.1
+FROM ghcr.io/webees/winforms-wine-runtime:<version>
 ```
 
 ```bash
@@ -38,18 +38,13 @@ docker pull ghcr.io/webees/winforms-wine-runtime@sha256:...
 
 ## Publishing
 
-`scripts/version.sh next` computes the next tag for today; `make version` runs
-it. The release workflow accepts only `vYYYY.MM.DD[.N]`, requires a matching,
-dated `CHANGELOG.md` section, and requires the tag to be on `main`.
-
-```bash
-git switch main && git pull --ff-only
-make version                  # e.g. v2026.11.17
-# move the Unreleased changelog entries under that version and date
-git commit -am "release: 2026.11.17"
-git tag -a v2026.11.17 -m "2026.11.17"
-git push origin main v2026.11.17
-```
+Releases are automated. A push to `main` whose `## [Unreleased]` section has
+entries makes the Release workflow open a `chore(release): v<version>` pull
+request (`scripts/version.sh bump` moves the changelog and pinned references).
+Merging it tags the commit and publishes the image, release and attestation.
+The tag must be a `vYYYY.MM.DD[.N]` tag with a matching dated
+`CHANGELOG.md` section reachable from `main`; re-run a failed publish with
+`gh workflow run release.yml -f tag=v<version>`.
 
 Same-day rebuilds get `.1`, `.2`, and so on. Tags are never reused.
 
