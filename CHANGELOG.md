@@ -18,6 +18,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Every dimension in both rubrics is now scored out of 100 and the overall
+  score is their mean, so 100 requires every dimension at 100.
 - Base images are pinned by digest (`UBUNTU_DIGEST`, `DOTNET_SDK_DIGEST`), and
   the WebView2 NuGet package is verified against `WEBVIEW2_SHA256`.
 - GitHub Actions are pinned to 40-character commit SHAs with a `# vX` comment;
