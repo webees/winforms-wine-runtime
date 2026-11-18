@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -27,10 +26,13 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: {fetch-depth: 0, persist-credentials: false}
-      - env: {GH_TOKEN: '${{ secrets.RELEASE_TOKEN }}'}
+      - id: release
+        env: {GH_TOKEN: '${{ secrets.RELEASE_TOKEN }}'}
         run: |
           set -euo pipefail
           [ -n "$GH_TOKEN" ] || { echo '::warning::RELEASE_TOKEN missing, see docs/versioning.md'; exit 0; }
@@ -41,25 +43,28 @@ jobs:
           subject="$(git log -1 --format=%s)"
           if [[ "$subject" == 'chore(release): '* ]]; then
             tag="v${subject#chore(release): }"
-            git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null ||
-              { git tag -a "$tag" -m "${tag#v}" && git push origin "$tag"; }
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then exit 0; fi
+          else
+            awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit}
+                 f&&/^- /{found=1} END{exit !found}' CHANGELOG.md || exit 0
+            [ -z "$(gh pr list --state open --json headRefName \
+              --jq '.[]|select(.headRefName|startswith("release/"))')" ] || exit 0
+            version="$(./scripts/version.sh next)"; version="${version#v}"
+            ./scripts/version.sh bump "$version"
+            branch="release/v$version"
+            git switch -c "$branch" && git commit -qam "chore(release): $version"
+            git push -q origin "$branch"
+            gh pr create --base main --head "$branch" --title "chore(release): $version" --body "Automated CalVer release."
+            for _ in {1..30}; do [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$(git rev-parse HEAD)/check-runs" --jq .total_count)" -gt 0 ] && break; sleep 10; done
+            gh pr checks "$branch" --watch --fail-fast
+            gh pr merge "$branch" --rebase --delete-branch
+            for _ in {1..20}; do git fetch -q origin main; [ "$(git log -1 --format=%s origin/main)" = "chore(release): $version" ] && break; sleep 3; done
             exit 0
           fi
-          awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit}
-               f&&/^- /{found=1} END{exit !found}' CHANGELOG.md || exit 0
-          [ -z "$(gh pr list --state open --json headRefName \
-            --jq '.[]|select(.headRefName|startswith("release/"))')" ] || exit 0
-          version="$(./scripts/version.sh next)"; version="${version#v}"
-          ./scripts/version.sh bump "$version"
-          branch="release/v$version"
-          git switch -c "$branch" && git commit -qam "chore(release): $version" && git push -q origin "$branch"
-          gh pr create --base main --head "$branch" --title "chore(release): v$version" --body "Automated CalVer release."
-          sha="$(git rev-parse HEAD)"
-          for _ in {1..30}; do [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs" --jq .total_count)" -gt 0 ] && break; sleep 10; done
-          gh pr checks "$branch" --watch --fail-fast
-          gh pr merge "$branch" --rebase --delete-branch
+          git tag -a "$tag" origin/main -m "${tag#v}" && git push origin "$tag"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
   verify:
-    if: always() && !cancelled() && (github.event_name != 'push' || github.ref_type == 'tag')
+    if: always() && !cancelled() && (needs.prepare.outputs.tag != '' || inputs.tag != '')
     needs: prepare
     runs-on: ubuntu-24.04
     permissions:
@@ -71,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.tag || inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -79,7 +84,7 @@ jobs:
         name: resolve version
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ needs.prepare.outputs.tag || inputs.tag }}"
           version="$(./scripts/version.sh check "$tag")"
           release_date="$(printf '%s' "$version" | cut -d. -f1-3 | tr . -)"
           heading="## [$version] - $release_date"
