@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # CalVer helpers for this repository: vYYYY.MM.DD[.N]
 #
-#   ./scripts/version.sh next            print the next tag for today (UTC)
+#   ./scripts/version.sh next            print the next tag for today (Asia/Shanghai)
 #   ./scripts/version.sh current         print the newest tag
 #   ./scripts/version.sh check v2026.11.17   validate and print 2026.11.17
 #   ./scripts/version.sh bump 2026.11.18     promote Unreleased to that release
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export TZ=${CALVER_TZ:-Asia/Shanghai}
 
 die() {
   printf 'version: %s\n' "$*" >&2
@@ -37,7 +38,7 @@ check() {
   local build=${BASH_REMATCH[5]:-}
   valid_date "$year" "$month" "$day" || die "invalid calendar date: $year-$month-$day"
   local stamp="${year}${month}${day}" today
-  today=$(date -u +%Y%m%d)
+  today=$(date +%Y%m%d)
   ((10#$stamp <= 10#$today)) || die "release date is in the future: $year-$month-$day"
   printf '%s.%s.%s' "$year" "$month" "$day"
   if [[ -n $build ]]; then printf '.%s' "$build"; fi
@@ -46,7 +47,7 @@ check() {
 
 next() {
   local date base max=-1 tag build
-  date=$(date -u +%Y.%m.%d)
+  date=$(date +%Y.%m.%d)
   base="v${date}"
   while IFS= read -r tag; do
     [[ -n $tag ]] || continue

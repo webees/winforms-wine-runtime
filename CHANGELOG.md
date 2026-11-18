@@ -8,9 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Pushes to `main` with new `Unreleased` entries open a `chore(release): v<version>`
-  pull request; merging it tags and publishes the image, release and attestation.
-  `scripts/version.sh bump` moves the entries and pinned references.
+- Pushes to `main` with new `Unreleased` entries now release without any manual
+  step: the workflow bumps `scripts/version.sh`, opens and merges the
+  `chore(release): v<version>` pull request, tags the result and publishes.
+- CalVer dates follow `Asia/Shanghai` (`CALVER_TZ`), so a release made after
+  local midnight is no longer rejected as future-dated.
 - `scripts/quality.py` grades the repository against a 100-point rubric
   covering hygiene, shell, Python, supply chain, runtime hardening,
   governance, documentation, verification and leanness. `docs/quality.md`
