@@ -34,15 +34,13 @@ docker pull ghcr.io/webees/winforms-wine-runtime@sha256:...
 
 Releases are automated end to end. A push to `main` with `## [Unreleased]`
 entries makes the Release workflow run `scripts/version.sh bump`, open a
-`chore(release): v<version>` pull request, wait for checks, rebase-merge it, then
-tag and publish. It needs a `RELEASE_TOKEN` secret: a fine-grained PAT with
-`contents` and `pull-requests` write; `GITHUB_TOKEN` cannot, because pull
-requests it opens never run workflows.
+`chore(release): v<version>` pull request, wait for checks, rebase-merge it,
+tag that commit and publish. It needs a `RELEASE_TOKEN` fine-grained PAT with
+`contents` and `pull-requests` write: pull requests opened by `GITHUB_TOKEN`
+never run workflows.
 
-The tag must be a `vYYYY.MM.DD[.N]` tag with a matching dated
-`CHANGELOG.md` section reachable from `main`; re-run a failed publish with
-`gh workflow run release.yml -f tag=v<version>`. Same-day rebuilds get `.1`,
-`.2`, and so on. Tags are never reused.
+Every release gets the next `.N`; tags are never reused. Re-run a failed
+publish with `gh workflow run release.yml -f tag=v<version>`.
 
 The retired 1.0.0 image was the noVNC runtime, incompatible with the current
 KasmVNC runtime. The `2` alias was removed: it duplicated `latest`.
