@@ -46,7 +46,7 @@ docker run --rm -p 6901:6901 \
 ```
 
 Open <https://localhost:6901>, accept the self-signed certificate, type the
-password, and the self-test application appears on a 1600×900 desktop. Set
+password, and the self-test application appears on a 1280×720 desktop. Set
 `-e KASMVNC_SSL=0` when a TLS-terminating proxy sits in front of the container.
 
 The published GHCR package is the **runtime** — it contains no application. The
@@ -102,9 +102,10 @@ to preserve per-user settings.
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `LANG` | `C.UTF-8` | Locale used by Wine and its helper processes |
 | `APP` | first `*.exe` in `/app` | Executable to launch: a bare file name under `/app` or an absolute Linux path; Windows paths such as `C:\...` are rejected |
 | `APP_ARGS` | empty | Extra command-line arguments, split on whitespace (no quote handling) |
-| `SCREEN` | `1600x900x24` | Desktop geometry and colour depth |
+| `SCREEN` | `1280x720x24` | Desktop geometry and colour depth |
 | `ENABLE_VNC` | `0` | `1` starts KasmVNC |
 | `VNC_PASSWORD` | empty | HTTP basic auth password, minimum 6 characters |
 | `KASMVNC_PORT` | `6901` | Web client, WebSocket and desktop port |
@@ -112,11 +113,11 @@ to preserve per-user settings.
 | `KASMVNC_SSL` | `1` | `1` serves HTTPS with a self-signed certificate |
 | `KASMVNC_CERT` | empty | PEM with certificate and key, overrides the self-signed one |
 | `KASMVNC_ALLOW_NO_AUTH` | `0` | `1` allows an unauthenticated desktop |
-| `KASMVNC_FRAME_RATE` | `30` | Encoder frame rate ceiling |
-| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `7` / `8` | Dynamic JPEG/WebP quality floor and ceiling (0–9) |
+| `KASMVNC_FRAME_RATE` | `15` | Encoder frame rate ceiling |
+| `KASMVNC_QUALITY_MIN` / `KASMVNC_QUALITY_MAX` | `5` / `8` | Dynamic JPEG/WebP quality floor and ceiling (0–9) |
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`, `h264`, `h265`, `av1`, or a `*_vaapi` variant |
-| `KASMVNC_RECT_THREADS` | `0` | Encoder thread count, `0` = automatic |
-| `KASMVNC_PREFER_BANDWIDTH` | `0` | `1` trades quality for bandwidth (lower quality steps, more compression) |
+| `KASMVNC_RECT_THREADS` | `1` | Encoder thread count, `0` = automatic |
+| `KASMVNC_PREFER_BANDWIDTH` | `1` | `1` trades quality for bandwidth (lower quality steps, more compression) |
 | `WEBVIEW2_USER_DATA_FOLDER` | unset | Not set by the image; applications should pass `userDataFolder` to `CreateAsync` (the self-test uses `Z:\data\wv2`) |
 
 Auto-detection scans only the top level of `/app` (not recursively) and skips

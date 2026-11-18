@@ -95,7 +95,7 @@ so reviewers can read the intent without reading Python.
 | `release.guarded-delete` | Retired-tag deletion only runs on `workflow_dispatch` and exposes `dry_run` |
 | `docs.switch` | Both READMEs link to each other within the first eight lines |
 | `docs.parity` | Both READMEs carry the same translated section set |
-| `docs.env-docs` | Every variable read by `docker/entrypoint.sh` is in both README tables, and no table entry is unread |
+| `docs.env-docs` | Every variable read by `docker/entrypoint.sh` is in both README tables, no table entry is unread, and README defaults match `ENV` values |
 | `docs.args-docs` | The README build-argument table and the Dockerfile `ARG` set are identical |
 | `docs.port-docs` | The single `EXPOSE` port appears in both READMEs, the ports doc and both examples |
 | `docs.bench-docs` | `docs/benchmark.md` documents exactly the keys `bench.sh` emits, every `score.py` dimension, and a perfect report still scores 100 |
