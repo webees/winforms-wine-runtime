@@ -6,7 +6,7 @@ Only the newest CalVer release receives security fixes.
 
 | Version | Supported |
 |---|---|
-| `2026.11.17.1` (latest) | ✅ |
+| `2026.11.19.1` (latest) | ✅ |
 | older CalVer releases | ❌ |
 | 1.x (retired noVNC image) | ❌ |
 
