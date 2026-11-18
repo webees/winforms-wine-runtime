@@ -10,7 +10,7 @@ works with either builder; `make push` needs `docker buildx`.
 ```bash
 make build      # build runtime and self-test images
 make test       # run the self-test suite
-make lint       # shell + dockerfile + workflow + Python lint, docs sync, quality
+make lint       # formatters, linters, rubric tests, quality gate
 make quality    # 100-point engineering audit, fails below 100
 ```
 
@@ -32,7 +32,7 @@ layers are cached afterwards.
   comment, and add the action to `.github/dependabot.yml`.
 - Keep `make quality` at 100/100. The rubric in `docs/quality.md` explains
   every check, and changing a check means updating both the doc and
-  `scripts/test_quality.py`.
+  `scripts/test_rubrics.py`.
 
 ## Pull requests
 
@@ -41,7 +41,7 @@ layers are cached afterwards.
 3. Describe how you verified the change. Image changes require a CI run or a
    local `make test` transcript.
 4. Update the docs when behaviour, ports, volumes or environment variables
-   change; `scripts/check-docs.sh` fails otherwise.
+   change; `make quality` fails otherwise.
 5. Keep both READMEs in sync. `docs.parity` in `scripts/quality.py` enforces
    the same section set in `README.md` and `README.zh-CN.md`.
 

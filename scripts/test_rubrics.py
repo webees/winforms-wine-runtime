@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Boundary tests for the rubric in scripts/score.py.
+"""Boundary tests for both rubrics: scripts/score.py and scripts/quality.py.
 
-    python3 scripts/test_score.py
+    python3 scripts/test_rubrics.py
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from score import GIB, KIB_PER_MIB, score  # noqa: E402
+import quality
+from score import GIB, KIB_PER_MIB, score
 
 PERFECT = {
     "image": "test:1",
@@ -38,12 +39,11 @@ PERFECT = {
 
 
 def points(**overrides: object) -> dict[str, int]:
-    report = dict(PERFECT, **overrides)
-    _, rows = score(report)
+    _, rows = score(dict(PERFECT, **overrides))
     return {name: got for name, got, _, _ in rows}
 
 
-class RubricTest(unittest.TestCase):
+class PerformanceRubricTest(unittest.TestCase):
     def test_perfect_report_scores_100(self) -> None:
         self.assertEqual(score(dict(PERFECT))[0], 100)
 
@@ -99,33 +99,71 @@ class RubricTest(unittest.TestCase):
         self.assertEqual(points()["desktop"], 100)
         self.assertEqual(points(x_display="no")["desktop"], 0)
 
+    def test_cli_good_report_passes(self) -> None:
+        self.assertEqual(self.run_score(PERFECT).returncode, 0)
 
-class CliTest(unittest.TestCase):
-    script = Path(__file__).resolve().parent / "score.py"
+    def test_cli_failed_self_test_blocks_release(self) -> None:
+        result = self.run_score(dict(PERFECT, selftest_ok=False))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("self-test", result.stderr)
+
+    def test_cli_score_below_min_fails(self) -> None:
+        result = self.run_score(dict(PERFECT, anon_status=200, auth_guard=""))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("score: FAILED", result.stderr)
 
     def run_score(self, report: dict) -> subprocess.CompletedProcess[str]:
         with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
             json.dump(report, handle)
             handle.flush()
             return subprocess.run(
-                [sys.executable, str(self.script), handle.name],
+                [sys.executable, str(Path(__file__).resolve().parent / "score.py"),
+                 handle.name],
                 capture_output=True,
                 text=True,
                 check=False,
             )
 
-    def test_good_report_passes(self) -> None:
-        self.assertEqual(self.run_score(PERFECT).returncode, 0)
 
-    def test_failed_self_test_blocks_release(self) -> None:
-        result = self.run_score(dict(PERFECT, selftest_ok=False))
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("self-test", result.stderr)
+class QualityCheckTest(unittest.TestCase):
+    def test_points_are_additive(self) -> None:
+        dim = quality.Dimension("sample")
+        dim.checks.append(quality.Check("a", "first", 4, True))
+        dim.checks.append(quality.Check("b", "second", 6, False))
+        self.assertEqual(dim.earned, 4)
+        self.assertEqual(dim.budget, 10)
 
-    def test_score_below_min_fails(self) -> None:
-        result = self.run_score(dict(PERFECT, anon_status=200, auth_guard=""))
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("score: FAILED", result.stderr)
+    def test_dimension_score_is_normalised(self) -> None:
+        dim = quality.Dimension("sample")
+        dim.checks.append(quality.Check("a", "pass", 3, True))
+        dim.checks.append(quality.Check("b", "fail", 1, False))
+        self.assertEqual(dim.score, 75)
+
+    def test_parity_mapping_is_unique(self) -> None:
+        english = [pair[0] for pair in quality.README_SECTIONS]
+        chinese = [pair[1] for pair in quality.README_SECTIONS]
+        self.assertEqual(len(english), len(set(english)))
+        self.assertEqual(len(chinese), len(set(chinese)))
+
+    def test_h2_ignores_deeper_headings(self) -> None:
+        body = "# title\n## One\ntext\n### skip\n## Two\n"
+        self.assertEqual(quality.h2(body), ["One", "Two"])
+
+    def test_dockerfile_arg_reads_defaults(self) -> None:
+        text = "ARG UBUNTU_VERSION=26.04\nARG BASE=ubuntu:${UBUNTU_VERSION}\n"
+        self.assertEqual(quality.dockerfile_arg(text, "UBUNTU_VERSION"), "26.04")
+        self.assertEqual(quality.dockerfile_arg(text, "MISSING"), "")
+
+    def test_latest_release_is_calver(self) -> None:
+        self.assertRegex(quality.latest_release(),
+                         r"^\d{4}\.\d{2}\.\d{2}(\.\d+)?$")
+
+    def test_every_dimension_is_weighted(self) -> None:
+        data = quality.report()
+        self.assertEqual(len(data["dimensions"]), len(quality.BUILDERS))
+        for dim in data["dimensions"]:
+            self.assertGreater(len(dim["checks"]), 0, dim["name"])
+            self.assertEqual(dim["score"], 100, dim["name"])
 
 
 if __name__ == "__main__":

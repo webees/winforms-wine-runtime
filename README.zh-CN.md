@@ -167,9 +167,9 @@ make build          # 运行时 + 自检两个目标
 make test           # 在容器里跑自检
 make bench          # 测体积、启动、内存并写出 bench.json
 make score          # 评分，低于 90 分失败
-make baseline       # 统计跟踪的文件数、行数、字节数与最大文件
-make score-test     # 评分规则单测
-make lint           # shellcheck、hadolint、actionlint、action 固定版本、文档同步、评分单测
+make baseline       # 统计跟踪的文件数、行数与字节数
+make rubric-test    # 两套评分规则的单测
+make lint           # 格式化、静态检查、评分单测与质量门禁
 ```
 
 arm64 宿主机上所有目标都走 QEMU 模拟，可用但很慢；CI 与生产使用原生 x86-64。
