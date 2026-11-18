@@ -78,7 +78,7 @@ bump() {
     's{(winforms-wine-runtime:)\d{4}\.\d{2}\.\d{2}(?:\.\d+)?}{$1$ENV{VERSION}}g;
      s{(\| `)\d{4}\.\d{2}\.\d{2}(?:\.\d+)?(` \(latest\))}{$1$ENV{VERSION}$2}' \
     README.md README.zh-CN.md SECURITY.md examples/kubernetes.yaml \
-    docs/ports-and-volumes.md docs/versioning.md
+    docs/ports-and-volumes.md docs/versioning.md .github/ISSUE_TEMPLATE/bug_report.yml
 }
 
 case "${1:-}" in
