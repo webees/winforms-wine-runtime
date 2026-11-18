@@ -3,7 +3,7 @@ TAG ?= dev
 PLATFORM ?= linux/amd64
 BUILD_ARGS ?=
 
-.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint quality quality-test shellcheck shfmt hadolint actionlint ruff version version-check push clean
+.PHONY: help build build-base build-demo test bench score rubric-test baseline lint quality shellcheck shfmt hadolint actionlint ruff version version-check push clean
 
 help:
 	@printf '%s\n' \
@@ -14,13 +14,11 @@ help:
 	  '  test         run the self-test suite in a container' \
 	  '  bench        measure image, start time, memory; write bench.json' \
 	  '  score        grade bench.json against docs/benchmark.md' \
-	  '  docs-check   fail when code and docs disagree' \
 	  '  version      print the next CalVer tag for today (UTC)' \
 	  '  version-check validate TAG as CalVer' \
-	  '  baseline     tracked file, line and byte totals plus the largest files' \
-	  '  score-test   unit tests for the scoring rubric' \
+	  '  baseline     tracked file, line and byte totals' \
 	  '  quality      grade the repository against docs/quality.md' \
-	  '  quality-test unit tests for the quality rubric' \
+	  '  rubric-test  unit tests for both scoring rubrics' \
 	  '  lint         shfmt, shellcheck, hadolint, actionlint, ruff and quality gates' \
 	  '  push         push $(IMAGE):$(TAG) (CalVer only) for $(PLATFORM)' \
 	  '  clean        remove local images built here'
@@ -46,21 +44,12 @@ score:
 	./scripts/score.py bench.json
 
 baseline:
-	./scripts/baseline.sh
+	@git ls-files -z | xargs -0 wc -lc | tail -n 1
 
-docs-check:
-	./scripts/check-docs.sh
+lint: shfmt shellcheck hadolint actionlint ruff rubric-test quality
 
-lint: shfmt shellcheck hadolint actionlint ruff pins-check docs-check score-test quality-test quality
-
-pins-check:
-	./scripts/check-action-pins.sh
-
-score-test:
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_score.py
-
-quality-test:
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_quality.py
+rubric-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_rubrics.py
 
 quality:
 	./scripts/quality.py --min 100

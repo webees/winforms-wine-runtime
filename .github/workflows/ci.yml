@@ -24,11 +24,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: score tests
-        run: python3 scripts/test_score.py
-
-      - name: quality tests
-        run: python3 scripts/test_quality.py
+      - name: rubric tests
+        run: python3 scripts/test_rubrics.py
 
       - name: shellcheck
         run: |
@@ -72,14 +69,8 @@ jobs:
           path: quality.json
           retention-days: 14
 
-      - name: docs match code
-        run: ./scripts/check-docs.sh
-
       - name: example compose file
         run: VNC_PASSWORD=example docker compose -f examples/docker-compose.yml config >/dev/null
-
-      - name: action pins
-        run: ./scripts/check-action-pins.sh
 
   build:
     name: build + bench

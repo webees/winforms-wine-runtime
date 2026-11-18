@@ -159,9 +159,9 @@ RUN set -eu; \
     test -f /wine/drive_c/windows/Fonts/wqy-microhei.ttc; \
     test -x /wine/drive_c/webview2/msedgewebview2.exe; \
     grep -qi 'wine: created the configuration' /tmp/wineboot.log
-COPY docker/entrypoint.sh docker/healthcheck.sh /usr/local/bin/
+COPY docker/entrypoint.sh /usr/local/bin/
 RUN set -eu; \
-    chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh; \
+    chmod 0755 /usr/local/bin/entrypoint.sh; \
     test "$(cat /etc/wfr-setup-id)" = "$(cat /wine/.wfr-setup-id)" || { \
       echo "wfr-setup-id stamps diverged: prefix layer and image fingerprint disagree" >&2; exit 1; }; \
     mkdir -p /app /data
@@ -173,7 +173,7 @@ WORKDIR /app
 EXPOSE 6901
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-  CMD ["/usr/local/bin/healthcheck.sh"]
+  CMD ["bash", "-c", "xdpyinfo >/dev/null 2>&1 && { [ \"${ENABLE_VNC:-0}\" != 1 ] || [ -n \"$(ss -ltnH \"sport = :${KASMVNC_PORT:-6901}\")\" ]; }"]
 
 # tini reaps zombies; the entrypoint replaces itself with the application.
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

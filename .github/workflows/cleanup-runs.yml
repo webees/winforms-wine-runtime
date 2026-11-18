@@ -1,4 +1,4 @@
-name: Cleanup actions
+name: Cleanup runs
 
 # Deletes old workflow runs, caches and artifacts. Runs are kept per workflow so
 # that recent history of every workflow stays visible.

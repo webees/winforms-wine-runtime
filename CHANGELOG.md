@@ -10,15 +10,16 @@ All notable changes to this project are documented here. The format follows
 
 - `scripts/quality.py` grades the repository against a 100-point rubric
   covering hygiene, shell, Python, supply chain, runtime hardening,
-  governance, documentation and verification. `docs/quality.md` documents every
-  check; `make quality` fails below 100.
-- `scripts/test_quality.py` unit-tests the rubric, and CI uploads
+  governance, documentation, verification and leanness. `docs/quality.md`
+  documents every check; `make quality` fails below 100.
+- `scripts/test_rubrics.py` unit-tests both rubrics, and CI uploads
   `quality.json` as an artifact.
 - `pyproject.toml` pins the `ruff` configuration used by `make lint`.
 - The rubric now also checks empty/bloated files, Dependabot grouping and PR
   limits, the health-check boot window, the no-password warning, scoped
   workflow tokens, manual-only tag deletion, Markdown link integrity,
-  environment-table parity and the retired `2` alias.
+  environment-table parity, file and directory naming, the retired `2` alias,
+  and the size of the tracked tree.
 
 ### Changed
 
@@ -27,9 +28,16 @@ All notable changes to this project are documented here. The format follows
 - Base images are pinned by digest (`UBUNTU_DIGEST`, `DOTNET_SDK_DIGEST`), and
   the WebView2 NuGet package is verified against `WEBVIEW2_SHA256`.
 - GitHub Actions are pinned to 40-character commit SHAs with a `# vX` comment;
-  `scripts/check-action-pins.sh` enforces both.
-- `make lint` now runs `shfmt`, `ruff`, the quality gate and both rubric test
-  suites.
+  the `supply-chain` checks enforce both.
+- `make lint` now runs `shfmt`, `ruff`, the rubric tests and the quality gate.
+- The docs auditor moved into `scripts/quality.py`: environment, argument,
+  port, benchmark and image references are scored checks instead of a separate
+  `check-docs.sh`.
+- `make baseline` is a one-line recipe, and the health check is inline in the
+  Dockerfile; `baseline.sh`, `check-docs.sh`, `check-action-pins.sh` and
+  `healthcheck.sh` are gone.
+- `.github/workflows/cleanup-actions.yml` is now `cleanup-runs.yml`, matching
+  the concurrency group and what the job actually prunes.
 - Both READMEs start with a language switch and share the same section set;
   release references are updated to `2026.11.17.1`.
 - The `2` moving alias is no longer published or documented. The cleanup
