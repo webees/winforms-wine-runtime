@@ -57,11 +57,7 @@ next() {
       ((build > max)) && max=$build
     fi
   done < <(git tag --list "v${date}*")
-  if ((max < 0)); then
-    printf '%s\n' "$base"
-  else
-    printf '%s.%d\n' "$base" "$((max + 1))"
-  fi
+  printf '%s.%d\n' "$base" "$((max < 0 ? 1 : max + 1))"
 }
 
 current() {
