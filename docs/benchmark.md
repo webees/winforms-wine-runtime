@@ -79,10 +79,10 @@ idle RSS, 2.58 GiB image.
 
 | Metric | Value |
 |---|---|
-| Tracked files | 53 |
-| Lines | ~4.8 k |
-| Bytes | ~181 KB |
-| Largest file | `scripts/quality.py` (~18 KB) |
+| Tracked files | 48 |
+| Lines | 4.95 k |
+| Bytes | 192 KB |
+| Largest file | `scripts/quality.py` (31 KB) |
 
 Numbers vary with host CPU, page cache and image storage; compare within one
 host, not across machines.

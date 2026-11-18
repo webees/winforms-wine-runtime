@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib
 import json
 import re
 import subprocess
@@ -37,6 +38,34 @@ TEXT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
+NAME = re.compile(r"^\.?[a-z0-9][a-z0-9.-]*$")
+PY_NAME = re.compile(r"^[a-z][a-z0-9_]*\.py$")
+TEMPLATE_NAME = re.compile(r"^[a-z][a-z0-9_]*\.yml$")
+FIXED_NAMES = {
+    "README.md", "README.zh-CN.md", "CHANGELOG.md", "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md", "SECURITY.md", "LICENSE", "CODEOWNERS",
+    "THIRD-PARTY-NOTICES.md", "PULL_REQUEST_TEMPLATE.md", "Dockerfile",
+    "Makefile",
+}
+DOTNET_NAME = re.compile(r"^[A-Z][A-Za-z0-9]*\.(?:cs|csproj)$")
+FIXED_DIRS = {"ISSUE_TEMPLATE"}
+
+
+def well_named(path: Path) -> bool:
+    """Lowercase paths, PascalCase .NET projects, fixed uppercase documents."""
+    parts = path.relative_to(ROOT).parts
+    for depth, part in enumerate(parts[:-1], 1):
+        project = ROOT.joinpath(*parts[:depth]) / f"{part}.csproj"
+        if part not in FIXED_DIRS and not NAME.match(part) and not project.is_file():
+            return False
+    name = parts[-1]
+    if name in FIXED_NAMES or DOTNET_NAME.match(name):
+        return True
+    if name.endswith(".py"):
+        return bool(PY_NAME.match(name))
+    if path.parent.name == "ISSUE_TEMPLATE":
+        return bool(TEMPLATE_NAME.match(name))
+    return bool(NAME.match(name))
 
 
 @dataclass(frozen=True)
@@ -94,6 +123,18 @@ def tracked_text() -> list[Path]:
         if path.is_file() and path.suffix in TEXT_SUFFIXES and path.stat().st_size < 1 << 20:
             out.append(path)
     return sorted(out)
+
+
+@cache
+def repo_files() -> list[Path]:
+    """Files that git would commit; ignored build output must not count."""
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT, capture_output=True, text=True)
+    if listed.returncode:
+        return tracked_text()
+    return [ROOT / rel for rel in listed.stdout.split("\0")
+            if rel and (ROOT / rel).is_file()]
 
 
 def latest_release() -> str:
@@ -188,6 +229,10 @@ def hygiene() -> Dimension:
                if p.stat().st_size > MAX_TEXT_BYTES]
     dim.checks.append(Check("size", f"text files <= {MAX_TEXT_BYTES // 1024} KiB", 1,
                             not bloated, ", ".join(bloated) or "within budget"))
+
+    odd = [p.relative_to(ROOT).as_posix() for p in repo_files() if not well_named(p)]
+    dim.checks.append(Check("naming", "consistent file names", 3,
+                            not odd, ", ".join(odd[:3]) or "kebab-case + .NET PascalCase"))
     return dim
 
 
@@ -299,8 +344,8 @@ def runtime() -> Dimension:
                             bool(re.search(r'ENTRYPOINT \["[^"]*tini", "--"', text)),
                             "tini entrypoint"))
     dim.checks.append(Check("healthcheck", "health check wired", 3,
-                            "HEALTHCHECK" in text and "healthcheck.sh" in text,
-                            "healthcheck.sh"))
+                            "HEALTHCHECK" in text and "xdpyinfo" in text
+                            and "ss -ltnH" in text, "inline HEALTHCHECK"))
     exposed = re.findall(r"^EXPOSE (\d+)", text, re.M)
     dim.checks.append(Check("port", "single exposed port", 2,
                             exposed == ["6901"], ", ".join(exposed) or "none"))
@@ -431,14 +476,9 @@ def docs() -> Dimension:
     dim.checks.append(Check("parity", "bilingual section parity", 4,
                             not missing and not extra and not duplicated, detail))
 
-    result = subprocess.run(["bash", "scripts/check-docs.sh"], cwd=ROOT,
-                            capture_output=True, text=True)
-    tail = (result.stderr or result.stdout).strip().splitlines()
-    dim.checks.append(Check("sync", "code and docs agree", 3,
-                            result.returncode == 0, tail[-1] if tail else "docs-chk"))
     rubric = read("docs/quality.md")
     names = ["hygiene", "shell", "python", "supply-chain", "runtime",
-             "governance", "release", "docs", "verification"]
+             "governance", "release", "docs", "verification", "leanness"]
     dim.checks.append(Check("rubric", "rubric documented", 2,
                             all(name in rubric for name in names) and "100" in rubric,
                             "docs/quality.md"))
@@ -462,7 +502,9 @@ def docs() -> Dimension:
 
     def env_keys(text: str, heading: str) -> list[str]:
         section = text.split(heading, 1)[1].split("\n## ", 1)[0]
-        return re.findall(r"^\| `([A-Z0-9_]+)`", section, re.M)
+        pairs = re.findall(r"^\| `([A-Z0-9_]+)`(?: / `([A-Z0-9_]+)`)?",
+                           section, re.M)
+        return [name for pair in pairs for name in pair if name]
 
     en_keys = env_keys(en, "## Environment")
     zh_keys = env_keys(zh, "## 环境变量")
@@ -476,6 +518,88 @@ def docs() -> Dimension:
                           p.read_text(errors="replace"))]
     dim.checks.append(Check("alias", "retired aliases are gone", 4,
                             not alias, ", ".join(alias) or "no stale alias"))
+
+    dockerfile = read("Dockerfile")
+    entry = read("docker/entrypoint.sh")
+    code_vars = set(re.findall(r"\$\{([A-Z][A-Z0-9_]*):-", entry)) - {
+        "BASH_SOURCE", "HOME", "PATH", "PWD", "DISPLAY", "WINEPREFIX",
+        "WINESERVER", "LANG"}
+    unused = sorted(v for v in en_keys if not v.startswith("WEBVIEW2_")
+                    and v not in entry + dockerfile)
+    undocumented = sorted(code_vars - set(en_keys)) + sorted(code_vars - set(zh_keys))
+    dim.checks.append(Check("env-docs", "runtime variables documented", 4,
+                            not undocumented and not unused,
+                            ", ".join(undocumented + unused) or f"{len(code_vars)} variables"))
+
+    build = en.split("## Build arguments", 1)[1].split("\n## ", 1)[0]
+    doc_args = set(re.findall(r"^\| `([A-Z][A-Z0-9_]*)`", build, re.M))
+    code_args = set(re.findall(r"^ARG ([A-Z][A-Z0-9_]*)", dockerfile, re.M)) - {
+        "DEBIAN_FRONTEND"}
+    dim.checks.append(Check("args-docs", "build arguments documented", 3,
+                            doc_args == code_args,
+                            ", ".join(sorted(doc_args ^ code_args))
+                            or f"{len(code_args)} arguments"))
+
+    port = re.search(r"^EXPOSE (\d+)", dockerfile, re.M)
+    port_files = ["README.md", "README.zh-CN.md", "docs/ports-and-volumes.md",
+                  "examples/docker-compose.yml", "examples/kubernetes.yaml"]
+    absent = [name for name in port_files
+              if not port or port.group(1) not in read(name)]
+    dim.checks.append(Check("port-docs", "exposed port documented", 3,
+                            bool(port) and not absent,
+                            ", ".join(absent) or (port.group(1) if port else "no EXPOSE")))
+
+    scorer = importlib.import_module("score").score
+    bench_doc = read("docs/benchmark.md")
+    marker = re.search(r"^# bench-report-keys:(.*(?:\n#   .*)*)",
+                       read("scripts/bench.sh"), re.M)
+    emitted = set(re.findall(r"[a-z0-9_]+", marker.group(1))) if marker else set()
+    measured = re.search(r"^## What is measured$(.*?)^## ", bench_doc, re.S | re.M)
+    documented = {key for line in (measured.group(1).splitlines() if measured else [])
+                  if line.startswith("|")
+                  for key in re.findall(r"`([a-z0-9_]+)`", (line.split("|") + [""])[1])}
+    scoring = re.search(r"^## Scoring$(.*?)^## ", bench_doc, re.S | re.M)
+    scored = scoring.group(1).lower() if scoring else ""
+    total, rows = scorer({
+        "selftest_ok": True, "selftest_steps": 4, "anon_status": 401,
+        "auth_guard": "ok", "tls_status": 200, "plain_on_tls_port": 400,
+        "start_ms": 1_000, "app_ms": 2_000, "idle_rss_kb": 200 * 1024,
+        "size_bytes": 2 * 1024 ** 3, "x_display": "yes"})
+    wrong = [name for name, _, maximum, _ in rows
+             if name.lower() not in scored or maximum != 100]
+    dim.checks.append(Check("bench-docs", "benchmark docs match score.py", 4,
+                            bool(marker) and emitted == documented and total == 100
+                            and not wrong,
+                            ", ".join(sorted((emitted ^ documented) | set(wrong)))
+                            or f"{total}/100, {len(emitted)} keys"))
+
+    image = re.search(r"^IMAGE \?= (\S+)", read("Makefile"), re.M)
+    image = image.group(1) if image else ""
+    refs = sources("README.md", "README.zh-CN.md", "docs/*.md",
+                   "examples/*.yml", "examples/*.yaml")
+    missing_image = [p.relative_to(ROOT).as_posix() for p in refs
+                     if p.name in {"README.md", "README.zh-CN.md",
+                                   "ports-and-volumes.md", "kubernetes.yaml"}
+                     and image not in p.read_text(errors="replace")]
+    bad_tags = [p.relative_to(ROOT).as_posix() for p in refs
+                if re.search(rf"{re.escape(image)}:dev(?![0-9A-Za-z-])",
+                             p.read_text(errors="replace"))
+                or re.search(rf"{re.escape(image)}:(?:1|1\.0|1\.0\.0|2\.0|2\.0\.0)"
+                             r"(?![0-9.])", p.read_text(errors="replace"))]
+    dim.checks.append(Check("image-docs", "documented image and tags", 4,
+                            bool(image) and not missing_image and not bad_tags,
+                            ", ".join(missing_image + bad_tags) or image))
+
+    versioning = read("docs/versioning.md")
+    dim.checks.append(Check("calver", "CalVer documented", 2,
+                            "CalVer" in versioning and "scripts/version.sh" in versioning,
+                            "docs/versioning.md"))
+
+    windows = [p.relative_to(ROOT).as_posix() for p in refs
+               if re.search(r"APP=([A-Za-z]:\\|[A-Za-z]:/)",
+                            p.read_text(errors="replace"))]
+    dim.checks.append(Check("app-path", "no Windows APP paths", 2,
+                            not windows, ", ".join(windows) or "Linux paths only"))
     return dim
 
 
@@ -485,8 +609,8 @@ def verification() -> Dimension:
     counts = {p.name: len(re.findall(r"^\s*def test_", p.read_text(), re.M))
               for p in tests}
     dim.checks.append(Check("tests", "scoring tests", 4,
-                            {"test_score.py", "test_quality.py"} <= set(counts)
-                            and min(counts.values()) >= 5, str(counts)))
+                            "test_rubrics.py" in counts
+                            and counts["test_rubrics.py"] >= 15, str(counts)))
     harness = {"scripts/selftest.sh", "scripts/bench.sh", "scripts/score.py"}
     present = {str(p.relative_to(ROOT)) for p in sources("scripts/*")}
     dim.checks.append(Check("harness", "verification harness", 2,
@@ -509,8 +633,33 @@ def verification() -> Dimension:
     return dim
 
 
+def leanness() -> Dimension:
+    dim = Dimension("leanness")
+    files = repo_files()
+    lines = {p: len(read(p.relative_to(ROOT).as_posix()).splitlines())
+             for p in files}
+    total = sum(lines.values())
+    biggest = max(lines.items(), key=lambda item: item[1])
+    dim.checks.append(Check("files", "small tree", 3, len(files) <= 50,
+                            f"{len(files)} files"))
+    dim.checks.append(Check("lines", "small codebase", 3, total <= 5000,
+                            f"{total} lines"))
+    dim.checks.append(Check("largest", "no monolith file", 3, biggest[1] <= 760,
+                            f"{biggest[0].name} {biggest[1]} lines"))
+    scripts = sources("scripts/*", "docker/*")
+    cited = "\n".join(read(p.relative_to(ROOT).as_posix()) for p in files
+                      if p not in scripts)
+    orphans = [p.name for p in scripts if p.name not in cited]
+    dim.checks.append(Check("orphans", "every script is used", 4,
+                            not orphans, ", ".join(orphans) or f"{len(scripts)} scripts"))
+    audits = [p.name for p in sources("scripts/check-*.sh")]
+    dim.checks.append(Check("audits", "one audit entry point", 3,
+                            not audits, ", ".join(audits) or "quality.py"))
+    return dim
+
+
 BUILDERS = (hygiene, shell, python, supply_chain, runtime, governance, release,
-            docs, verification)
+            docs, verification, leanness)
 
 
 def report() -> dict:

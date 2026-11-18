@@ -213,9 +213,9 @@ make build          # runtime + self-test targets
 make test           # run the self-test suite in a container
 make bench          # measure size, start-up, memory and write bench.json
 make score          # grade bench.json, exit non-zero below 90
-make baseline       # tracked files, lines and bytes plus the largest files
-make score-test     # unit tests for the scoring rubric
-make lint           # shellcheck, hadolint, actionlint, action pins, docs sync, score tests
+make baseline       # tracked file, line and byte totals
+make rubric-test    # unit tests for both scoring rubrics
+make lint           # formatters, linters, rubric tests and the quality gate
 ```
 
 On an arm64 host every target runs under QEMU emulation, which is supported but
