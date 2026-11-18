@@ -16,7 +16,7 @@ services:
     environment:
       ENABLE_VNC: "1"
       VNC_PASSWORD: ${VNC_PASSWORD:?set VNC_PASSWORD}
-      SCREEN: ${SCREEN:-1600x900x24}
+      SCREEN: ${SCREEN:-1280x720x24}
       KASMVNC_PORT: "${KASMVNC_PORT:-6901}"
       KASMVNC_SSL: "${KASMVNC_SSL:-1}"
     volumes:

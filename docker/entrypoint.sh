@@ -9,7 +9,7 @@ set -euo pipefail
 export DISPLAY="${DISPLAY:-:99}"
 export HOME="${HOME:-/root}"
 
-SCREEN="${SCREEN:-1600x900x24}"
+SCREEN="${SCREEN:-1280x720x24}"
 IFS=x read -r width height depth <<<"$SCREEN"
 depth="${depth:-24}"
 if [[ ! $width =~ ^[0-9]+$ || ! $height =~ ^[0-9]+$ || ! $depth =~ ^[0-9]+$ ]]; then
@@ -91,11 +91,11 @@ prepare_cert() {
 }
 
 start_desktop() {
-  local frame_rate="${KASMVNC_FRAME_RATE:-30}"
-  local quality_min="${KASMVNC_QUALITY_MIN:-7}"
+  local frame_rate="${KASMVNC_FRAME_RATE:-15}"
+  local quality_min="${KASMVNC_QUALITY_MIN:-5}"
   local quality_max="${KASMVNC_QUALITY_MAX:-8}"
-  local rect_threads="${KASMVNC_RECT_THREADS:-0}"
-  local prefer_bandwidth="${KASMVNC_PREFER_BANDWIDTH:-0}"
+  local rect_threads="${KASMVNC_RECT_THREADS:-1}"
+  local prefer_bandwidth="${KASMVNC_PREFER_BANDWIDTH:-1}"
   require_uint KASMVNC_PORT "$PORT"
   require_uint KASMVNC_FRAME_RATE "$frame_rate"
   require_uint KASMVNC_QUALITY_MIN "$quality_min"
