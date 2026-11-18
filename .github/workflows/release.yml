@@ -35,7 +35,6 @@ jobs:
         env: {GH_TOKEN: '${{ secrets.RELEASE_TOKEN }}'}
         run: |
           set -euo pipefail
-          [ -n "$GH_TOKEN" ] || { echo '::warning::RELEASE_TOKEN missing, see docs/versioning.md'; exit 0; }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git remote set-url origin \
@@ -47,6 +46,7 @@ jobs:
           else
             awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit}
                  f&&/^- /{found=1} END{exit !found}' CHANGELOG.md || exit 0
+            [ -n "$GH_TOKEN" ] || { echo '::warning::RELEASE_TOKEN missing, see docs/versioning.md'; exit 0; }
             [ -z "$(gh pr list --state open --json headRefName \
               --jq '.[]|select(.headRefName|startswith("release/"))')" ] || exit 0
             version="$(./scripts/version.sh next)"; version="${version#v}"
