@@ -10,9 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Pushes to `main` with new `Unreleased` entries now release without any manual
-  step: the workflow bumps `scripts/version.sh`, opens and merges the
-  `chore(release): v<version>` pull request, tags the result and publishes.
+- Pushes to `main` with new `Unreleased` entries now release without a manual
+  step: bump `scripts/version.sh`, merge the `chore(release): v<version>` pull
+  request, tag and publish. Needs a `RELEASE_TOKEN` secret; pull requests opened
+  by `GITHUB_TOKEN` never run workflows.
 - CalVer dates follow `Asia/Shanghai` (`CALVER_TZ`), so a release made after
   local midnight is no longer rejected as future-dated.
 - `scripts/quality.py` grades the repository against a 100-point rubric
