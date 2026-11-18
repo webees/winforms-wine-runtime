@@ -9,7 +9,10 @@
 set -euo pipefail
 
 case "${1:-}" in
-  -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+-h | --help)
+  sed -n '2,8p' "$0"
+  exit 0
+  ;;
 esac
 
 IMAGE="${IMAGE:-winforms-wine-runtime:dev-demo}"
@@ -71,7 +74,10 @@ if [ "$ok" != "1" ] || [ "$passed" != "$total" ] || [ "$total" = "0" ]; then
 fi
 
 for f in report.json sunnyui.png magick.png webview2.png; do
-  test -s "$OUT_DIR/$f" || { echo "missing artifact: $f" >&2; exit 1; }
+  test -s "$OUT_DIR/$f" || {
+    echo "missing artifact: $f" >&2
+    exit 1
+  }
 done
 
 echo "==> all checks passed"

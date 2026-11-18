@@ -17,12 +17,30 @@ OUT=""
 EVIDENCE=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --image) IMAGE="$2"; shift 2 ;;
-    --out) OUT="$2"; shift 2 ;;
-    --platform) PLATFORM="$2"; shift 2 ;;
-    --evidence) EVIDENCE="$2"; shift 2 ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
-    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  --image)
+    IMAGE="$2"
+    shift 2
+    ;;
+  --out)
+    OUT="$2"
+    shift 2
+    ;;
+  --platform)
+    PLATFORM="$2"
+    shift 2
+    ;;
+  --evidence)
+    EVIDENCE="$2"
+    shift 2
+    ;;
+  -h | --help)
+    sed -n '2,8p' "$0"
+    exit 0
+    ;;
+  *)
+    echo "unknown argument: $1" >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -36,7 +54,10 @@ clean_tree() { # the app writes as its own uid; fall back to a root container
   rm -rf "$1" 2>/dev/null ||
     docker run --rm -u 0:0 --entrypoint sh -v "$1:/w" "$IMAGE" -c 'find /w -mindepth 1 -delete' >/dev/null 2>&1 || true
 }
-cleanup() { docker rm -f "$APP" "$TLS" >/dev/null 2>&1 || true; clean_tree "$tmp"; }
+cleanup() {
+  docker rm -f "$APP" "$TLS" >/dev/null 2>&1 || true
+  clean_tree "$tmp"
+}
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -93,10 +114,13 @@ mem_kb() { # container
   local mem value
   mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$1" | awk '{print $1}')
   case "$mem" in
-    *GiB) value=$(awk -v v="${mem%GiB}" 'BEGIN {printf "%d", v * 1048576}') ;;
-    *MiB) value=$(awk -v v="${mem%MiB}" 'BEGIN {printf "%d", v * 1024}') ;;
-    *KiB) value=$(awk -v v="${mem%KiB}" 'BEGIN {printf "%d", v}') ;;
-    *) echo "bench: cannot read container memory (got '$mem')" >&2; return 1 ;;
+  *GiB) value=$(awk -v v="${mem%GiB}" 'BEGIN {printf "%d", v * 1048576}') ;;
+  *MiB) value=$(awk -v v="${mem%MiB}" 'BEGIN {printf "%d", v * 1024}') ;;
+  *KiB) value=$(awk -v v="${mem%KiB}" 'BEGIN {printf "%d", v}') ;;
+  *)
+    echo "bench: cannot read container memory (got '$mem')" >&2
+    return 1
+    ;;
   esac
   printf '%s' "$value"
 }
@@ -104,14 +128,20 @@ mem_kb() { # container
 echo "==> image $IMAGE"
 # Content size, independent of the host's image store (compressed vs. unpacked).
 size=$(docker run --rm ${plat[@]+"${plat[@]}"} --entrypoint du "$IMAGE" -sbx / 2>/dev/null | awk '{print $1}')
-[ -n "$size" ] || { echo "bench: cannot measure image size" >&2; exit 1; }
+[ -n "$size" ] || {
+  echo "bench: cannot measure image size" >&2
+  exit 1
+}
 
 echo "==> cold start (HTTP)"
 start=$(now_ms)
 docker run -d ${plat[@]+"${plat[@]}"} --name "$APP" -e ENABLE_VNC=1 -e VNC_PASSWORD="$PW" -e KASMVNC_SSL=0 \
   -p "127.0.0.1::${DESKTOP_PORT}" "$IMAGE" >/dev/null
 HTTP_PORT=$(host_port "$APP")
-[ -n "$HTTP_PORT" ] || { echo "bench: no published desktop port" >&2; exit 1; }
+[ -n "$HTTP_PORT" ] || {
+  echo "bench: no published desktop port" >&2
+  exit 1
+}
 if ! wait_http "http://127.0.0.1:$HTTP_PORT/" "wine:$PW" 120; then
   docker logs --tail 40 "$APP" >&2 || true
   echo "bench: desktop did not answer within 120 s" >&2
@@ -145,8 +175,14 @@ docker rm -f "$TLS" >/dev/null 2>&1 || true
 docker run -d ${plat[@]+"${plat[@]}"} --name "$TLS" -e ENABLE_VNC=1 -e VNC_PASSWORD="$PW" \
   -p "127.0.0.1::${DESKTOP_PORT}" "$IMAGE" >/dev/null
 TLS_PORT=$(host_port "$TLS")
-[ -n "$TLS_PORT" ] || { echo "bench: no published TLS port" >&2; exit 1; }
-wait_http "https://127.0.0.1:$TLS_PORT/" "wine:$PW" 120 || { echo "bench: TLS listener failed" >&2; exit 1; }
+[ -n "$TLS_PORT" ] || {
+  echo "bench: no published TLS port" >&2
+  exit 1
+}
+wait_http "https://127.0.0.1:$TLS_PORT/" "wine:$PW" 120 || {
+  echo "bench: TLS listener failed" >&2
+  exit 1
+}
 tls=$(http_code "https://127.0.0.1:$TLS_PORT/" "wine:$PW")
 plain=$(http_code "http://127.0.0.1:$TLS_PORT/" "")
 
@@ -173,10 +209,24 @@ if [ -n "$EVIDENCE" ]; then
 fi
 read -r selftest_ok selftest_steps _ <"$tmp/selftest.summary"
 
-# bench-report-keys: image platform cpus size_bytes start_ms app_ms auth_status anon_status tls_status plain_on_tls_port x_display idle_rss_kb auth_guard selftest_ok selftest_steps selftest_ms
-json=$(printf '{\n  "image": "%s",\n  "platform": "%s",\n  "cpus": %s,\n  "size_bytes": %s,\n  "start_ms": %s,\n  "app_ms": %s,\n  "auth_status": %s,\n  "anon_status": %s,\n  "tls_status": %s,\n  "plain_on_tls_port": %s,\n  "x_display": "%s",\n  "idle_rss_kb": %s,\n  "auth_guard": "%s",\n  "selftest_ok": %s,\n  "selftest_steps": %s,\n  "selftest_ms": %s\n}' \
-  "$IMAGE" "${PLATFORM:-native}" "$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 0)" \
-  "$size" "$start_ms" "$app_ms" "${auth:-0}" "${anon:-0}" "${tls:-0}" "${plain:-0}" \
-  "$x_ok" "$rss_kb" "$guard" "$selftest_ok" "$selftest_steps" "$selftest_ms")
+# bench-report-keys: image platform cpus size_bytes start_ms app_ms auth_status
+#   anon_status tls_status plain_on_tls_port x_display idle_rss_kb auth_guard
+#   selftest_ok selftest_steps selftest_ms
+json=$(
+  printf '{\n  "image": "%s",\n  "platform": "%s",\n  "cpus": %s,\n  "size_bytes": %s,\n' \
+    "$IMAGE" "${PLATFORM:-native}" \
+    "$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 0)" "$size"
+  printf '  "start_ms": %s,\n  "app_ms": %s,\n  "auth_status": %s,\n  "anon_status": %s,\n' \
+    "$start_ms" "$app_ms" "${auth:-0}" "${anon:-0}"
+  printf '  "tls_status": %s,\n  "plain_on_tls_port": %s,\n  "x_display": "%s",\n' \
+    "${tls:-0}" "${plain:-0}" "$x_ok"
+  printf '  "idle_rss_kb": %s,\n  "auth_guard": "%s",\n  "selftest_ok": %s,\n' \
+    "$rss_kb" "$guard" "$selftest_ok"
+  printf '  "selftest_steps": %s,\n  "selftest_ms": %s\n}' \
+    "$selftest_steps" "$selftest_ms"
+)
 
-if [ -n "$OUT" ]; then printf '%s\n' "$json" >"$OUT"; echo "==> wrote $OUT"; else printf '%s\n' "$json"; fi
+if [ -n "$OUT" ]; then
+  printf '%s\n' "$json" >"$OUT"
+  echo "==> wrote $OUT"
+else printf '%s\n' "$json"; fi

@@ -52,6 +52,12 @@ The trade-offs are deliberate:
 
 ## Build-time decisions
 
+**Every input is pinned.** Base images are referenced as `tag@sha256:...`
+through `UBUNTU_DIGEST` and `DOTNET_SDK_DIGEST`, the KasmVNC `.deb` and the
+WebView2 NuGet package are verified with `sha256sum -c`, and GitHub Actions are
+pinned to commit SHAs. Dependabot proposes updates; `scripts/quality.py` and
+`scripts/check-action-pins.sh` fail when a pin is missing.
+
 **WebView2 Fixed Version, not Evergreen.** The Evergreen bootstrapper requires a
 real Windows service stack; it fails silently under Wine. The Fixed Version is a
 plain directory. The image sets `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER=C:\webview2`

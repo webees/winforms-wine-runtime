@@ -21,9 +21,12 @@ jobs:
     name: lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: score tests
         run: python3 scripts/test_score.py
+
+      - name: quality tests
+        run: python3 scripts/test_quality.py
 
       - name: shellcheck
         run: |
@@ -33,17 +36,39 @@ jobs:
           shellcheck --version
           shellcheck -x docker/*.sh scripts/*.sh
 
+      - name: shfmt
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/w" -w /w mvdan/shfmt:v3.12.0 -d docker scripts
+
+      - name: ruff
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user -q ruff==0.17.5
+          "$HOME/.local/bin/ruff" check scripts
+
       - name: hadolint
-        uses: hadolint/hadolint-action@v3.5.0
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: Dockerfile
           config: .hadolint.yaml
           failure-threshold: warning
 
       - name: actionlint
-        uses: raven-actions/actionlint@v2.2.0
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
         with:
           fail-on-error: true
+
+      - name: repository quality
+        run: python3 scripts/quality.py --json quality.json
+
+      - name: upload quality report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: quality-report
+          path: quality.json
+          retention-days: 14
 
       - name: docs match code
         run: ./scripts/check-docs.sh
@@ -59,12 +84,12 @@ jobs:
     runs-on: ubuntu-24.04
     needs: lint
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: build runtime target
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           target: base
@@ -78,7 +103,7 @@ jobs:
             SOURCE_REVISION=${{ github.sha }}
 
       - name: build self-test target
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           target: demo
@@ -124,7 +149,7 @@ jobs:
 
       - name: upload evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: bench-evidence
           path: |
@@ -143,12 +168,12 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: build for scan
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           target: base
@@ -158,7 +183,7 @@ jobs:
           cache-from: type=gha,scope=runtime
 
       - name: trivy
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:scan
           format: sarif
@@ -168,12 +193,12 @@ jobs:
 
       - name: upload sarif
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: trivy.sarif
 
       - name: fail on critical
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:scan
           format: table
