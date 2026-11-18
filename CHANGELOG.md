@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); releases use
 [CalVer](https://calver.org/) as `vYYYY.MM.DD`.
 
+## [Unreleased]
+
+### Added
+
+- `scripts/quality.py` grades the repository against a 100-point rubric
+  covering hygiene, shell, Python, supply chain, runtime hardening,
+  governance, documentation and verification. `docs/quality.md` documents every
+  check; `make quality` fails below 100.
+- `scripts/test_quality.py` unit-tests the rubric, and CI uploads
+  `quality.json` as an artifact.
+- `pyproject.toml` pins the `ruff` configuration used by `make lint`.
+
+### Changed
+
+- Base images are pinned by digest (`UBUNTU_DIGEST`, `DOTNET_SDK_DIGEST`), and
+  the WebView2 NuGet package is verified against `WEBVIEW2_SHA256`.
+- GitHub Actions are pinned to 40-character commit SHAs with a `# vX` comment;
+  `scripts/check-action-pins.sh` enforces both.
+- `make lint` now runs `shfmt`, `ruff`, the quality gate and both rubric test
+  suites.
+- Both READMEs start with a language switch and share the same section set;
+  release references are updated to `2026.11.17.1`.
+
 ## [2026.11.17.1] - 2026-11-17
 
 ### Added

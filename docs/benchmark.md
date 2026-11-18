@@ -2,7 +2,9 @@
 
 The runtime is measured by `scripts/bench.sh` and graded by `scripts/score.py`.
 Both run against a built image; the demo target is required because the
-self-test is part of the score.
+self-test is part of the score. Engineering quality is a separate 100-point
+gate in [docs/quality.md](docs/quality.md); releases require both — quality at 100 and
+performance at least 90, with 100 as the target.
 
 ```bash
 make build                     # runtime + demo images at :dev / :dev-demo
@@ -66,16 +68,19 @@ KasmVNC 1.5.2 / WebView2 135.0.3179.98, demo image:
 | Self-test | 4/4, 10–15 s | `webview2` dominates |
 | Score | 100/100 (A) | |
 
+Last verified 2026-11-18: 384 ms cold start, 2.3 s to the app window, 217 MiB
+idle RSS, 2.58 GiB image.
+
 ## Repository baseline
 
 `make baseline` prints the tracked tree so changes are comparable:
 
 | Metric | Value |
 |---|---|
-| Tracked files | 49 |
-| Lines | ~4.0 k |
-| Bytes | ~152 KB |
-| Largest file | `README.md` (~11 KB) |
+| Tracked files | 53 |
+| Lines | ~4.8 k |
+| Bytes | ~181 KB |
+| Largest file | `scripts/quality.py` (~18 KB) |
 
 Numbers vary with host CPU, page cache and image storage; compare within one
 host, not across machines.

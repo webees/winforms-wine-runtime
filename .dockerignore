@@ -11,6 +11,7 @@ Makefile
 report.json
 bench.json
 bench.txt
+quality.json
 evidence
 __pycache__
 *.sarif

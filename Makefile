@@ -3,7 +3,7 @@ TAG ?= dev
 PLATFORM ?= linux/amd64
 BUILD_ARGS ?=
 
-.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint shellcheck hadolint actionlint version version-check push clean
+.PHONY: help build build-base build-demo test bench score score-test docs-check pins-check baseline lint quality quality-test shellcheck shfmt hadolint actionlint ruff version version-check push clean
 
 help:
 	@printf '%s\n' \
@@ -19,7 +19,9 @@ help:
 	  '  version-check validate TAG as CalVer' \
 	  '  baseline     tracked file, line and byte totals plus the largest files' \
 	  '  score-test   unit tests for the scoring rubric' \
-	  '  lint         shellcheck + hadolint + actionlint + workflow, docs and score checks' \
+	  '  quality      grade the repository against docs/quality.md' \
+	  '  quality-test unit tests for the quality rubric' \
+	  '  lint         shfmt, shellcheck, hadolint, actionlint, ruff and quality gates' \
 	  '  push         push $(IMAGE):$(TAG) (CalVer only) for $(PLATFORM)' \
 	  '  clean        remove local images built here'
 
@@ -49,13 +51,19 @@ baseline:
 docs-check:
 	./scripts/check-docs.sh
 
-lint: shellcheck hadolint actionlint pins-check docs-check score-test
+lint: shfmt shellcheck hadolint actionlint ruff pins-check docs-check score-test quality-test quality
 
 pins-check:
 	./scripts/check-action-pins.sh
 
 score-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_score.py
+
+quality-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_quality.py
+
+quality:
+	./scripts/quality.py --min 100
 
 version:
 	@./scripts/version.sh next
@@ -69,6 +77,22 @@ shellcheck:
 	else \
 	  docker run --rm -v "$(CURDIR):/mnt" -w /mnt koalaman/shellcheck:stable \
 	    docker/*.sh scripts/*.sh; \
+	fi
+
+shfmt:
+	@if command -v shfmt >/dev/null 2>&1; then \
+	  shfmt -d docker scripts; \
+	else \
+	  docker run --rm -v "$(CURDIR):/w" -w /w mvdan/shfmt:v3.12.0 \
+	    -d docker scripts; \
+	fi
+
+ruff:
+	@if command -v ruff >/dev/null 2>&1; then \
+	  ruff check scripts; \
+	else \
+	  docker run --rm -v "$(CURDIR):/w" -w /w ghcr.io/astral-sh/ruff:0.17.5 \
+	    check scripts; \
 	fi
 
 hadolint:

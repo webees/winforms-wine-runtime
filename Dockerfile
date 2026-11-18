@@ -13,11 +13,14 @@
 # Target demo:           runtime + self-test app used by CI.
 
 ARG UBUNTU_VERSION=26.04
+ARG UBUNTU_DIGEST=sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
 ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:8.0
+ARG DOTNET_SDK_DIGEST=sha256:1b955f179b02df4f0eb5fadedaa898cbe44d620a64aab52eec72c8e91d1355b5
 ARG WEBVIEW2_VERSION=135.0.3179.98
+ARG WEBVIEW2_SHA256=a6647e22379156781d07894a59382e62bfb1b1413edbdb335ecbd811a8c72245
 ARG KASMVNC_VERSION=1.5.2
 
-FROM ${DOTNET_SDK_IMAGE} AS selftest-build
+FROM ${DOTNET_SDK_IMAGE}@${DOTNET_SDK_DIGEST} AS selftest-build
 WORKDIR /src
 COPY src/SelfTest/ ./
 RUN dotnet publish SelfTest.csproj -c Release -r win-x64 --self-contained true \
@@ -25,13 +28,14 @@ RUN dotnet publish SelfTest.csproj -c Release -r win-x64 --self-contained true \
 
 # Wine 9 (Ubuntu 24.04) cannot load .NET 8 managed assemblies
 # (System.Runtime.dll -> ERROR_MOD_NOT_FOUND). Wine 10 (Ubuntu 26.04) works.
-FROM ubuntu:${UBUNTU_VERSION} AS base
+FROM ubuntu:${UBUNTU_VERSION}@${UBUNTU_DIGEST} AS base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG UBUNTU_VERSION
 ARG WEBVIEW2_VERSION
+ARG WEBVIEW2_SHA256
 ARG KASMVNC_VERSION
 # Set by BuildKit; the default keeps the classic builder working.
 ARG TARGETARCH=amd64
@@ -113,11 +117,13 @@ RUN set -eu; \
 
 # WebView2 Fixed Version runtime (NuGet distribution, no Evergreen installer).
 # msedge.dll is Chromium itself: without it msedgewebview2.exe exits 13 with no
-# output and applications only see a 60 s timeout.
+# output and applications only see a 60 s timeout. WEBVIEW2_SHA256 is bound to
+# WEBVIEW2_VERSION; bump both together.
 RUN set -eu; \
     mkdir -p /tmp/wv /opt/webview2; \
     curl -fsSL -o /tmp/wv/wv.nupkg \
       "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/${WEBVIEW2_VERSION}/webview2.runtime.x64.${WEBVIEW2_VERSION}.nupkg"; \
+    echo "${WEBVIEW2_SHA256}  /tmp/wv/wv.nupkg" | sha256sum -c -; \
     unzip -q /tmp/wv/wv.nupkg -d /tmp/wv; \
     cp -a /tmp/wv/contentFiles/any/any/WebView2/. /opt/webview2/; \
     find /opt/webview2 -type f \( -iname '*.exe' -o -iname '*.dll' \) -exec chmod 0755 {} +; \
