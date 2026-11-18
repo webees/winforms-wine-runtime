@@ -18,7 +18,11 @@ on:
         default: false
       exclude_tags:
         description: Comma-separated tags to keep (use __none__ to purge all)
-        default: latest,2
+        default: latest
+        required: false
+      delete_tags:
+        description: Comma-separated extra tags to remove (retired aliases)
+        default: ''
         required: false
 
 permissions:
@@ -43,8 +47,18 @@ jobs:
           delete-ghost-images: true
           delete-partial-images: true
           keep-n-tagged: ${{ inputs.keep_tagged || 10 }}
-          # Keep only the moving aliases; immutable CalVer tags age out.
-          exclude-tags: ${{ inputs.exclude_tags || 'latest,2' }}
+          # Keep the moving alias; immutable CalVer tags age out.
+          exclude-tags: ${{ inputs.exclude_tags || 'latest' }}
+          validate: false
+          dry-run: ${{ inputs.dry_run || false }}
+
+      - name: delete retired tags
+        if: github.event_name == 'workflow_dispatch' && inputs.delete_tags != ''
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          package: winforms-wine-runtime
+          delete-tags: ${{ inputs.delete_tags }}
           validate: false
           dry-run: ${{ inputs.dry_run || false }}
 
@@ -55,6 +69,7 @@ jobs:
             echo ""
             echo "- package: \`winforms-wine-runtime\`"
             echo "- keep tagged: ${{ inputs.keep_tagged || 10 }}"
+            echo "- delete tags: ${{ inputs.delete_tags || 'none' }}"
             echo "- untagged manifests: deleted"
             echo "- dry run: ${{ inputs.dry_run || false }}"
           } >> "$GITHUB_STEP_SUMMARY"
