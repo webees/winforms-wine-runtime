@@ -2,14 +2,16 @@
 
 ## Development setup
 
-Requirements: Docker 24+, `make`, and (for linting) `shellcheck`, `hadolint`
-and `actionlint`. `make build` works with either builder; `make push` needs
-`docker buildx`.
+Requirements: Docker 24+, `make`, and (for linting) `shellcheck`, `hadolint`,
+`actionlint`, `shfmt`, `ruff` and Python 3.10+. Missing tools fall back to
+pinned container images, so only Docker is strictly required. `make build`
+works with either builder; `make push` needs `docker buildx`.
 
 ```bash
 make build      # build runtime and self-test images
 make test       # run the self-test suite
-make lint       # shell + dockerfile + workflow lint, docs sync check
+make lint       # shell + dockerfile + workflow + Python lint, docs sync, quality
+make quality    # 100-point engineering audit, fails below 100
 ```
 
 Building takes 6–8 minutes on 8 vCPU; the Wine prefix and WebView2 runtime
@@ -24,9 +26,13 @@ layers are cached afterwards.
   request.
 - Keep the runtime free of application code. The `demo` target exists only for
   CI and must stay small.
-- Shell scripts must pass `shellcheck` and use `set -euo pipefail`.
-- Pin new GitHub Actions by version tag and add the action to
-  `.github/dependabot.yml`.
+- Shell scripts must pass `shellcheck`, be `shfmt`-clean and use
+  `set -euo pipefail`. Python must pass `ruff check` (`pyproject.toml`).
+- Pin new GitHub Actions to a 40-character commit SHA with a `# vX.Y.Z`
+  comment, and add the action to `.github/dependabot.yml`.
+- Keep `make quality` at 100/100. The rubric in `docs/quality.md` explains
+  every check, and changing a check means updating both the doc and
+  `scripts/test_quality.py`.
 
 ## Pull requests
 
@@ -35,7 +41,9 @@ layers are cached afterwards.
 3. Describe how you verified the change. Image changes require a CI run or a
    local `make test` transcript.
 4. Update the docs when behaviour, ports, volumes or environment variables
-   change.
+   change; `scripts/check-docs.sh` fails otherwise.
+5. Keep both READMEs in sync. `docs.parity` in `scripts/quality.py` enforces
+   the same section set in `README.md` and `README.zh-CN.md`.
 
 ## Commit messages
 

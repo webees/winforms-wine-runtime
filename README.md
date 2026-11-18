@@ -1,5 +1,7 @@
 # winforms-wine-runtime
 
+**English** · [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/webees/winforms-wine-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/webees/winforms-wine-runtime/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/webees/winforms-wine-runtime?sort=date)](https://github.com/webees/winforms-wine-runtime/releases)
 [![Image](https://img.shields.io/badge/ghcr.io-winforms--wine--runtime-blue)](https://github.com/webees/winforms-wine-runtime/pkgs/container/winforms-wine-runtime)
@@ -60,7 +62,7 @@ never pushed.
 ## Use it for your own application
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17.1
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -192,8 +194,11 @@ and never mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
 | Argument | Default | Meaning |
 |---|---|---|
 | `UBUNTU_VERSION` | `26.04` | Base distribution; 22.04 and 24.04 ship Wine 6.0 and 9.0, which cannot load .NET 8 |
+| `UBUNTU_DIGEST` | `sha256:d66b…` | Digest pin for the base image; `UBUNTU_VERSION` supplies the tag |
 | `DOTNET_SDK_IMAGE` | `mcr.microsoft.com/dotnet/sdk:8.0` | Builds the self-test application |
+| `DOTNET_SDK_DIGEST` | `sha256:1b95…` | Digest pin for the SDK image |
 | `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version runtime, see the version policy above |
+| `WEBVIEW2_SHA256` | `a6647e…` | NuGet package checksum; bump it together with `WEBVIEW2_VERSION` |
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC release; the pinned SHA-256 only matches 1.5.2, so overriding it requires updating the checksum |
 | `KASMVNC_VIDEO` | `1` | Install FFmpeg for the WebCodecs H.264/H.265/AV1 path |
 | `WINE64_ONLY` | `1` | Drop 32-bit Wine (`i386-windows`, `syswow64`), about 1.2 GB |
@@ -224,6 +229,7 @@ much slower; CI and production use native x86-64.
 - [docs/network-tuning.md](docs/network-tuning.md) — latency, TCP, MTU and KasmVNC tuning
 - [docs/troubleshooting.md](docs/troubleshooting.md) — known failures and fixes
 - [docs/benchmark.md](docs/benchmark.md) — measured baseline and scoring
+- [docs/quality.md](docs/quality.md) — engineering rubric, checks and 100-point gate
 
 ## License
 

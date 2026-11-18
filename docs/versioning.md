@@ -20,8 +20,8 @@ test before rolling it out.
 
 | Ref | Example | Meaning |
 |---|---|---|
-| Git tag | `v2026.11.17` | Canonical release, immutable |
-| Image tag | `2026.11.17` | Canonical image, immutable |
+| Git tag | `v2026.11.17.1` | Canonical release, immutable |
+| Image tag | `2026.11.17.1` | Canonical image, immutable |
 | Image alias | `2` | Latest release of the 2.x line (moves) |
 | Image alias | `latest` | Newest release (moves) |
 | Local tag | `dev`, `dev-demo` | Local builds only, never published |
@@ -30,7 +30,7 @@ The `2` and `latest` aliases are conveniences, not reproducible pins. Production
 deployments should use an exact date tag or, better, its digest:
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17.1
 ```
 
 ```bash

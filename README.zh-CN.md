@@ -1,5 +1,7 @@
 # winforms-wine-runtime
 
+**简体中文** · [English](README.md)
+
 在 Linux 容器里运行 **.NET 8 WinForms** 桌面程序（含 **WebView2**、**SunnyUI**、
 **Magick.NET**），通过浏览器访问。
 
@@ -38,7 +40,7 @@ docker run --rm -p 6901:6901 \
 ## 用自己的程序
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.17.1
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
@@ -74,8 +76,11 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `UBUNTU_VERSION` | `26.04` | 基础发行版；22.04 与 24.04 自带 Wine 6.0 与 9.0，无法加载 .NET 8 |
+| `UBUNTU_DIGEST` | `sha256:d66b…` | 基础镜像 digest 固定；标签由 `UBUNTU_VERSION` 提供 |
 | `DOTNET_SDK_IMAGE` | `mcr.microsoft.com/dotnet/sdk:8.0` | 编译自检程序 |
+| `DOTNET_SDK_DIGEST` | `sha256:1b95…` | SDK 镜像 digest 固定 |
 | `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version 运行时，版本上限见「WebView2 版本策略」 |
+| `WEBVIEW2_SHA256` | `a6647e…` | NuGet 包校验值；升级 `WEBVIEW2_VERSION` 时同步更新 |
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC 版本；SHA-256 只对 1.5.2 有效，覆盖版本需同步改校验值 |
 | `KASMVNC_VIDEO` | `1` | 安装 FFmpeg，提供 H.264/H.265/AV1 编码 |
 | `WINE64_ONLY` | `1` | 去掉 32 位 Wine（`i386-windows`、`syswow64`），约 1.2 GB |
@@ -177,6 +182,7 @@ arm64 宿主机上所有目标都走 QEMU 模拟，可用但很慢；CI 与生�
 - [docs/network-tuning.md](docs/network-tuning.md) — 延迟、TCP、MTU 与 KasmVNC 调优
 - [docs/troubleshooting.md](docs/troubleshooting.md) — 已知故障与处理
 - [docs/benchmark.md](docs/benchmark.md) — 基线数据与评分口径
+- [docs/quality.md](docs/quality.md) — 工程质量评分口径、检查项与 100 分门槛
 
 ## 许可
 

@@ -47,23 +47,32 @@ def score(report: dict) -> tuple[int, list[tuple[str, int, int, str]]]:
     anon = int(num(report.get("anon_status"), 0))
     add("basic auth", 8 if anon == 401 else 0, 8, f"anonymous HTTP {anon}")
     guard = report.get("auth_guard") == "ok"
-    add("auth guard", 6 if guard else 0, 6, "refuses to start without a password" if guard else "started without a password")
-    tls_ok = int(num(report.get("tls_status"), 0)) == 200 and int(num(report.get("plain_on_tls_port"), 0)) != 200
-    add("TLS default", 6 if tls_ok else 0, 6, "HTTPS 200, plaintext rejected" if tls_ok else "TLS listener misconfigured")
+    guard_text = ("refuses to start without a password" if guard
+                  else "started without a password")
+    add("auth guard", 6 if guard else 0, 6, guard_text)
+    tls_ok = (int(num(report.get("tls_status"), 0)) == 200
+              and int(num(report.get("plain_on_tls_port"), 0)) != 200)
+    tls_text = ("HTTPS 200, plaintext rejected" if tls_ok
+                else "TLS listener misconfigured")
+    add("TLS default", 6 if tls_ok else 0, 6, tls_text)
 
     start_ms = int(num(report.get("start_ms"), 10**9))
-    add("cold start", band(start_ms, [(10_000, 8), (20_000, 4)]), 8, f"{start_ms / 1000:.1f} s to desktop")
+    add("cold start", band(start_ms, [(10_000, 8), (20_000, 4)]), 8,
+        f"{start_ms / 1000:.1f} s to desktop")
     app_ms = int(num(report.get("app_ms"), 10**9))
-    add("first window", band(app_ms, [(25_000, 10), (40_000, 5)]), 10, f"{app_ms / 1000:.1f} s to app window")
+    add("first window", band(app_ms, [(25_000, 10), (40_000, 5)]), 10,
+        f"{app_ms / 1000:.1f} s to app window")
     rss_kb = int(num(report.get("idle_rss_kb"), 10**9))
     add("idle memory", band(rss_kb, [(350 * KIB_PER_MIB, 7), (600 * KIB_PER_MIB, 4)]), 7,
         f"{rss_kb / KIB_PER_MIB:.0f} MiB container")
 
     size = int(num(report.get("size_bytes"), 10**13))
-    add("image size", band(size, [(4.5 * GIB, 10), (5.5 * GIB, 6), (6.5 * GIB, 3)]), 10, f"{size / GIB:.2f} GiB")
+    add("image size", band(size, [(4.5 * GIB, 10), (5.5 * GIB, 6), (6.5 * GIB, 3)]),
+        10, f"{size / GIB:.2f} GiB")
 
     x_ok = report.get("x_display") == "yes"
-    add("desktop", 5 if x_ok else 0, 5, "X display responds" if x_ok else "X display unreachable")
+    add("desktop", 5 if x_ok else 0, 5,
+        "X display responds" if x_ok else "X display unreachable")
 
     return sum(points for _, points, _, _ in rows), rows
 
@@ -77,11 +86,15 @@ def main() -> int:
 
     report = json.loads(args.report.read_text())
     total, rows = score(report)
-    grade = "A" if total >= 90 else "B" if total >= 75 else "C" if total >= 60 else "D"
+    grades = ((90, "A"), (75, "B"), (60, "C"))
+    grade = next((letter for floor, letter in grades if total >= floor), "D")
 
     if args.json:
-        print(json.dumps({"score": total, "grade": grade,
-                          "breakdown": [{"name": n, "points": p, "max": m, "detail": d} for n, p, m, d in rows]}))
+        breakdown = [
+            {"name": n, "points": p, "max": m, "detail": d}
+            for n, p, m, d in rows
+        ]
+        print(json.dumps({"score": total, "grade": grade, "breakdown": breakdown}))
     else:
         print(f"{'dimension':<16}{'points':>8}  detail")
         for name, points, maximum, detail in rows:

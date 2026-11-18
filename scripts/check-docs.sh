@@ -8,7 +8,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 fail=0
-bad() { printf 'docs-chk: %s\n' "$*" >&2; fail=1; }
+bad() {
+  printf 'docs-chk: %s\n' "$*" >&2
+  fail=1
+}
 
 # Variables with a documented default (`${VAR:-...}`), minus shell plumbing.
 code_vars=$(grep -oE '\$\{[A-Z][A-Z0-9_]*:-' docker/entrypoint.sh | sed -E 's/^\$\{//; s/:-$//' | sort -u |
@@ -23,13 +26,16 @@ doc_vars() {
 }
 
 for readme in README.md README.zh-CN.md; do
-  [ -f "$readme" ] || { bad "missing $readme"; continue; }
+  [ -f "$readme" ] || {
+    bad "missing $readme"
+    continue
+  }
   docs=$(doc_vars "$readme")
   for v in $code_vars; do
     grep -qx "$v" <<<"$docs" || bad "$readme does not document \`$v\`"
   done
   for v in $docs; do
-    case "$v" in WEBVIEW2_*) continue ;; esac  # consumed by the WebView2 loader
+    case "$v" in WEBVIEW2_*) continue ;; esac # consumed by the WebView2 loader
     grep -qw "$v" docker/entrypoint.sh Dockerfile || bad "$readme documents \`$v\` but no code reads it"
   done
 done
@@ -81,8 +87,8 @@ documented = dict(
 # key the report never contains. bench.sh declares its keys on one marker line
 # so this stays exact without parsing the printf format.
 bench = Path("scripts/bench.sh").read_text()
-marker = re.search(r"^# bench-report-keys: (.+)$", bench, re.M)
-emitted = set(marker.group(1).split()) if marker else set()
+marker = re.search(r"^# bench-report-keys:(.*(?:\n#   .*)*)", bench, re.M)
+emitted = set(re.findall(r"[a-z0-9_]+", marker.group(1))) if marker else set()
 if not emitted:
     print("docs-chk: scripts/bench.sh has no '# bench-report-keys:' line", file=sys.stderr)
     failed = True

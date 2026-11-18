@@ -18,8 +18,8 @@ SYSTEM='WenQuanYi Micro Hei'
 
 mkdir -p "$FONTDIR"
 cp -f /usr/share/fonts/truetype/wqy/wqy-microhei.ttc \
-   /usr/share/fonts/truetype/droid/"$FALLBACK" \
-   "$FONTDIR/"
+  /usr/share/fonts/truetype/droid/"$FALLBACK" \
+  "$FONTDIR/"
 
 # One regedit import instead of one Wine process per value. The file is
 # UTF-16LE because it contains Chinese value names.
@@ -35,7 +35,10 @@ trap 'rm -f "$REG_FILE"' EXIT
     printf '"%s"="%s"\r\n' "$family" "$SYSTEM"
   done
   printf '\r\n[HKEY_CURRENT_USER\\Software\\Wine]\r\n"Version"="win10"\r\n'
-} | iconv -f UTF-8 -t UTF-16LE | { printf '\xff\xfe'; cat; } >"$REG_FILE"
+} | iconv -f UTF-8 -t UTF-16LE | {
+  printf '\xff\xfe'
+  cat
+} >"$REG_FILE"
 wine reg import 'C:\wfr-setup.reg' >/dev/null
 
 # WebView2 links against the VC++ 2015-2022 runtime; Wine ships no redistributable.

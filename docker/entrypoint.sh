@@ -30,10 +30,13 @@ WINESERVER="${WINESERVER:-/usr/local/bin/wineserver}"
 
 CHILD=""
 log() { printf '[entrypoint] %s\n' "$*" >&2; }
-die() { log "error: $*"; exit 1; }
+die() {
+  log "error: $*"
+  exit 1
+}
 require_uint() {
   case "${2:-}" in
-    ''|*[!0-9]*) die "$1 must be a non-negative integer, got '${2:-}'" ;;
+  '' | *[!0-9]*) die "$1 must be a non-negative integer, got '${2:-}'" ;;
   esac
 }
 cleanup() {
@@ -109,8 +112,8 @@ start_desktop() {
     die "KASMVNC_QUALITY_MIN/MAX must satisfy 0 <= MIN <= MAX <= 9"
   fi
   case "$prefer_bandwidth" in
-    0|1) ;;
-    *) die "KASMVNC_PREFER_BANDWIDTH must be 0 or 1, got '$prefer_bandwidth'" ;;
+  0 | 1) ;;
+  *) die "KASMVNC_PREFER_BANDWIDTH must be 0 or 1, got '$prefer_bandwidth'" ;;
   esac
 
   local args=("$DISPLAY" -geometry "${width}x${height}" -depth "$depth"
@@ -159,7 +162,10 @@ start_xvfb() {
   log "starting Xvfb on ${DISPLAY} (${SCREEN})"
   Xvfb "$DISPLAY" -screen 0 "$SCREEN" -nolisten tcp -ac >/tmp/xvfb.log 2>&1 &
   CHILD=$!
-  wait_for_display || { tail -n 20 /tmp/xvfb.log >&2 || true; die "Xvfb failed to start"; }
+  wait_for_display || {
+    tail -n 20 /tmp/xvfb.log >&2 || true
+    die "Xvfb failed to start"
+  }
 }
 
 if [ "${ENABLE_VNC:-0}" = "1" ]; then start_desktop; else start_xvfb; fi
@@ -193,10 +199,11 @@ APP="${APP:-$(find /app -maxdepth 1 -type f -iname '*.exe' \
   sort | sed -n '1p')}"
 [ -n "$APP" ] || die "no .exe in /app; set APP=<name.exe>"
 case "$APP" in
-  *\\*|*:*)
-    die "APP must be a name relative to /app or an absolute Linux path, got '$APP'" ;;
-  /*) APP_PATH="$APP" ;;
-  *) APP_PATH="/app/$APP" ;;
+*\\* | *:*)
+  die "APP must be a name relative to /app or an absolute Linux path, got '$APP'"
+  ;;
+/*) APP_PATH="$APP" ;;
+*) APP_PATH="/app/$APP" ;;
 esac
 [ -f "$APP_PATH" ] || die "application not found: $APP_PATH"
 

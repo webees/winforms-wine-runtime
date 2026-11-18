@@ -1,7 +1,7 @@
 failure-threshold: warning
 ignored:
-  # Base image is tracked by tag on purpose: Ubuntu does not publish a stable
-  # digest for interim releases, and dependabot follows the tag.
+  # Base images are pinned by digest through ARG indirection
+  # (UBUNTU_DIGEST / DOTNET_SDK_DIGEST); hadolint only sees the ${VAR} tag.
   - DL3006
   # apt packages are not version-pinned; the base tag defines the snapshot.
   - DL3008

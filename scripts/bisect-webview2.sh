@@ -16,7 +16,15 @@ PLATFORM="${PLATFORM-linux/amd64}"
 plat=()
 [ -n "$PLATFORM" ] && plat=(--platform "$PLATFORM")
 OUT_DIR="$(mktemp -d)"
-trap 'rm -rf "$OUT_DIR"; [ "${KEEP_IMAGE:-0}" = "1" ] || docker image rm -f "winforms-wine-runtime:$TAG" >/dev/null 2>&1 || true' EXIT
+# Invoked through trap; shellcheck cannot see the reference.
+# shellcheck disable=SC2317,SC2329
+cleanup() {
+  rm -rf "$OUT_DIR"
+  if [ "${KEEP_IMAGE:-0}" != "1" ]; then
+    docker image rm -f "winforms-wine-runtime:$TAG" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 echo "==> building self-test image with WebView2 $VERSION"
 docker build ${plat[@]+"${plat[@]}"} --target demo \
@@ -25,7 +33,7 @@ docker build ${plat[@]+"${plat[@]}"} --target demo \
 
 echo "==> running self-test"
 if docker run --rm ${plat[@]+"${plat[@]}"} -v "$OUT_DIR:/data" -e ENABLE_VNC=0 \
-     "winforms-wine-runtime:$TAG" --selftest --strict --out 'Z:\data'; then
+  "winforms-wine-runtime:$TAG" --selftest --strict --out 'Z:\data'; then
   echo "PASS  $VERSION"
   exit 0
 fi
