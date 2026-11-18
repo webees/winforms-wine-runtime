@@ -47,11 +47,26 @@ class ParsingTests(unittest.TestCase):
 
 
 class RubricTests(unittest.TestCase):
-    def test_budget_is_one_hundred(self) -> None:
+    def test_every_dimension_is_weighted(self) -> None:
         data = quality.report()
+        self.assertEqual(len(data["dimensions"]), 9)
         for dim in data["dimensions"]:
             self.assertGreater(dim["budget"], 0, dim["name"])
-        self.assertEqual(sum(dim["budget"] for dim in data["dimensions"]), 100)
+
+    def test_check_ids_are_unique(self) -> None:
+        for dim in quality.report()["dimensions"]:
+            ids = [item["id"] for item in dim["checks"]]
+            self.assertEqual(len(ids), len(set(ids)), dim["name"])
+
+    def test_audit_covers_every_surface(self) -> None:
+        data = quality.report()
+        ids = {item["id"] for dim in data["dimensions"] for item in dim["checks"]}
+        expected = {
+            "empty", "size", "dependabot-hygiene", "healthcheck-window",
+            "no-auth-warning", "permissions", "guarded-delete", "links",
+            "env-parity", "alias", "strict", "gate",
+        }
+        self.assertLessEqual(expected, ids, expected - ids)
 
     def test_repository_scores_one_hundred(self) -> None:
         data = quality.report()

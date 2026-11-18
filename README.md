@@ -55,8 +55,8 @@ that adds the self-test app (`--target demo`); a plain `docker build .`
 produces the app-free runtime. `dev` and `dev-demo` are local-only tags and are
 never pushed.
 
-> **Releases use CalVer:** `vYYYY.MM.DD` in Git, `YYYY.MM.DD` in GHCR. `2` and
-> `latest` are moving aliases; pin the exact date tag or a digest in production.
+> **Releases use CalVer:** `vYYYY.MM.DD` in Git, `YYYY.MM.DD` in GHCR. Only
+> `latest` is a moving alias; pin the exact date tag or a digest in production.
 > See [docs/versioning.md](docs/versioning.md).
 
 ## Use it for your own application

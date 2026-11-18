@@ -22,11 +22,10 @@ test before rolling it out.
 |---|---|---|
 | Git tag | `v2026.11.17.1` | Canonical release, immutable |
 | Image tag | `2026.11.17.1` | Canonical image, immutable |
-| Image alias | `2` | Latest release of the 2.x line (moves) |
 | Image alias | `latest` | Newest release (moves) |
 | Local tag | `dev`, `dev-demo` | Local builds only, never published |
 
-The `2` and `latest` aliases are conveniences, not reproducible pins. Production
+The `latest` alias is a convenience, not a reproducible pin. Production
 deployments should use an exact date tag or, better, its digest:
 
 ```dockerfile
@@ -55,4 +54,6 @@ git push origin main v2026.11.17
 Same-day rebuilds get `.1`, `.2`, and so on. Tags are never reused.
 
 The retired 1.0.0 image was the old noVNC runtime. It is not compatible with the
-2.x KasmVNC runtime and is no longer published.
+current KasmVNC runtime and is no longer published. The retired `2` alias was
+removed as well: a numeric major alias duplicates `latest`, invites deployments
+that silently move, and was never needed after CalVer tags became the contract.

@@ -102,7 +102,7 @@ docker run -v "$PWD/data:/data" ...
 ```yaml
 services:
   app:
-    # Pin a CalVer release; `2` and `latest` are moving aliases.
+    # Pin a CalVer release; only `latest` is a moving alias.
     # Build your own image from it and COPY the application into /app.
     image: ghcr.io/webees/winforms-wine-runtime:2026.11.17.1
     ports: ["6901:6901"]
