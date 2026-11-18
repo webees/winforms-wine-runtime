@@ -4,6 +4,7 @@
 #   ./scripts/version.sh next            print the next tag for today (UTC)
 #   ./scripts/version.sh current         print the newest tag
 #   ./scripts/version.sh check v2026.11.17   validate and print 2026.11.17
+#   ./scripts/version.sh bump 2026.11.18     promote Unreleased to that release
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,7 +14,7 @@ die() {
 }
 
 usage() {
-  printf 'usage: %s {next|current|check <tag>}\n' "$0" >&2
+  printf 'usage: %s {next|current|check <tag>|bump <version>}\n' "$0" >&2
 }
 
 valid_date() {
@@ -66,9 +67,33 @@ current() {
   git tag --list 'v[0-9]*' --sort=-v:refname | head -n1
 }
 
+bump() {
+  local version=${1#v} day base=https://github.com/webees/winforms-wine-runtime
+  IFS=. read -r a b c _ <<<"$version"
+  day="$a-$b-$c"
+  awk -v v="$version" -v d="$day" -v base="$base" '
+    /^## \[Unreleased\]$/ { print; print ""; print "## [" v "] - " d; next }
+    /^\[Unreleased\]:/ { print "[Unreleased]: " base "/compare/v" v "...HEAD"
+                         print "[" v "]: " base "/releases/tag/v" v; next }
+    { print }' CHANGELOG.md >CHANGELOG.md.tmp
+  mv CHANGELOG.md.tmp CHANGELOG.md
+  VERSION=$version perl -pi -e \
+    's{(winforms-wine-runtime:)\d{4}\.\d{2}\.\d{2}(?:\.\d+)?}{$1$ENV{VERSION}}g;
+     s{(\| `)\d{4}\.\d{2}\.\d{2}(?:\.\d+)?(` \(latest\))}{$1$ENV{VERSION}$2}' \
+    README.md README.zh-CN.md SECURITY.md examples/kubernetes.yaml \
+    docs/ports-and-volumes.md docs/versioning.md
+}
+
 case "${1:-}" in
 next) next ;;
 current) current ;;
+bump)
+  [[ $# -eq 2 ]] || {
+    usage
+    exit 2
+  }
+  bump "$2"
+  ;;
 check)
   [[ $# -eq 2 ]] || {
     usage
