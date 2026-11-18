@@ -46,7 +46,8 @@ jobs:
           subject="$(git log -1 --format=%s)"
           if [[ "$subject" == 'chore(release): '* ]]; then
             tag="v${subject#chore(release): }"
-            git tag -a "$tag" -m "${tag#v}" && git push origin "$tag"
+            git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null ||
+              { git tag -a "$tag" -m "${tag#v}" && git push origin "$tag"; }
             mode='tag'
           elif awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit}
                     f&&/^- /{found=1} END{exit !found}' CHANGELOG.md &&

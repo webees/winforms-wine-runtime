@@ -1,8 +1,8 @@
 # Versioning
 
 This image uses [CalVer](https://calver.org/): `vYYYY.MM.DD`, dated in
-`Asia/Shanghai` (override with `CALVER_TZ`). Same-day rebuilds append `N`:
-`v2026.11.17`, `v2026.11.17.1`, `v2026.11.17.2`.
+`Asia/Shanghai` (override with `CALVER_TZ`). Every release appends `N`:
+`v2026.11.19.1`, `v2026.11.19.2`.
 
 ## Why not SemVer
 
