@@ -45,7 +45,7 @@ spec:
           # application. Build your own image `FROM` the same CalVer tag plus
           # `COPY publish/ /app`.
           # As written the pod cannot start: the runtime contains no /app.
-          image: ghcr.io/webees/winforms-wine-runtime:2026.11.19.1
+          image: ghcr.io/webees/winforms-wine-runtime:2026.11.19.2
           env:
             - name: ENABLE_VNC
               value: "1"

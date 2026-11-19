@@ -104,7 +104,7 @@ services:
   app:
     # Pin a CalVer release; only `latest` is a moving alias.
     # Build your own image from it and COPY the application into /app.
-    image: ghcr.io/webees/winforms-wine-runtime:2026.11.19.1
+    image: ghcr.io/webees/winforms-wine-runtime:2026.11.19.2
     ports: ["6901:6901"]
     environment:
       ENABLE_VNC: "1"
