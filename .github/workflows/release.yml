@@ -35,8 +35,8 @@ jobs:
         env: {GH_TOKEN: '${{ secrets.RELEASE_TOKEN }}'}
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          read -r id me < <(gh api user --jq '"\(.id) \(.login)"'); git config user.name "$me"
+          git config user.email "$id+$me@users.noreply.github.com"
           git remote set-url origin \
             "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           subject="$(git log -1 --format=%s)"

@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `docs/versioning.md` documents the fine-grained `RELEASE_TOKEN` releases need.
+
 ## [2026.11.19.1] - 2026-11-19
 
 ### Added
