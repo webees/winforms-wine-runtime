@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2026.11.19.2] - 2026-11-19
+
 ### Changed
 
 - `docs/versioning.md` documents the fine-grained `RELEASE_TOKEN` releases need.
@@ -185,7 +187,8 @@ First CalVer release, replacing the retired 1.x noVNC image.
 - `x11vnc`, `noVNC` and `websockify` from the image.
 - `docs/images/` screenshots; the self-test table documents the same evidence.
 
-[Unreleased]: https://github.com/webees/winforms-wine-runtime/compare/v2026.11.19.1...HEAD
+[Unreleased]: https://github.com/webees/winforms-wine-runtime/compare/v2026.11.19.2...HEAD
+[2026.11.19.2]: https://github.com/webees/winforms-wine-runtime/releases/tag/v2026.11.19.2
 [2026.11.19.1]: https://github.com/webees/winforms-wine-runtime/releases/tag/v2026.11.19.1
 [2026.11.17.1]: https://github.com/webees/winforms-wine-runtime/releases/tag/v2026.11.17.1
 [2026.11.17]: https://github.com/webees/winforms-wine-runtime/releases/tag/v2026.11.17

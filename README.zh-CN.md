@@ -41,7 +41,7 @@ docker run --rm -p 6901:6901 \
 ## 用自己的程序
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.19.1
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.19.2
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
