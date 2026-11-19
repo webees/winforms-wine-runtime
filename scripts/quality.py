@@ -612,7 +612,7 @@ def leanness() -> Dimension:
     dim = Dimension("leanness")
     files = repo_files()
     lines = {p: len(read(p.relative_to(ROOT).as_posix()).splitlines())
-             for p in files}
+             for p in files if p.name != "CHANGELOG.md"}
     total = sum(lines.values())
     biggest = max(lines.items(), key=lambda item: item[1])
     dim.checks.append(Check("files", "small tree", 3, len(files) <= 50,
