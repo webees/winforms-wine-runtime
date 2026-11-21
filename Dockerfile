@@ -67,6 +67,9 @@ ENV LANG=C.UTF-8 \
     WINEARCH=win64 \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES=mshtml= \
+    DOTNET_GCHeapHardLimit=0x10000000 \
+    DOTNET_gcServer=0 \
+    DOTNET_TieredPGO=0 \
     ENABLE_VNC=0 \
     KASMVNC_PORT=6901 \
     KASMVNC_LISTEN=0.0.0.0 \
@@ -77,7 +80,7 @@ ENV LANG=C.UTF-8 \
     KASMVNC_RECT_THREADS=1 \
     KASMVNC_PREFER_BANDWIDTH=1 \
     WEBVIEW2_BROWSER_EXECUTABLE_FOLDER='C:\webview2' \
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-features=RendererCodeIntegrity,NetworkServiceSandbox --disable-background-networking --disable-component-update --disable-domain-reliability --disable-sync --disable-breakpad --metrics-recording-only --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows'
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-features=RendererCodeIntegrity,NetworkServiceSandbox --disable-background-networking --disable-component-update --disable-domain-reliability --disable-sync --disable-breakpad --metrics-recording-only --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --renderer-process-limit=1 --js-flags=--max-old-space-size=256'
 
 # Distro packages, the SHA-256 pinned KasmVNC .deb, and the wineserver shim.
 RUN set -eu; \

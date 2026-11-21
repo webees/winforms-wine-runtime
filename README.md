@@ -118,6 +118,8 @@ to preserve per-user settings.
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`, `h264`, `h265`, `av1`, or a `*_vaapi` variant |
 | `KASMVNC_RECT_THREADS` | `1` | Encoder thread count, `0` = automatic |
 | `KASMVNC_PREFER_BANDWIDTH` | `1` | `1` trades quality for bandwidth (lower quality steps, more compression) |
+| `DOTNET_GCHeapHardLimit` / `DOTNET_gcServer` / `DOTNET_TieredPGO` | `0x10000000` / `0` / `0` | Cap the .NET heap at 256 MiB and skip server GC and tiered PGO |
+| `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` | see `Dockerfile` | Chromium flags: software rendering, one renderer process, 256 MiB JS heap, no background traffic |
 | `WEBVIEW2_USER_DATA_FOLDER` | unset | Not set by the image; applications should pass `userDataFolder` to `CreateAsync` (the self-test uses `Z:\data\wv2`) |
 
 Auto-detection scans only the top level of `/app` (not recursively) and skips

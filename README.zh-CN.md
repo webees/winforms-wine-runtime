@@ -109,6 +109,8 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `KASMVNC_VIDEO_CODEC` | `auto` | `auto`、`h264`、`h265`、`av1` 或对应的 `*_vaapi` |
 | `KASMVNC_RECT_THREADS` | `1` | 编码线程数，`0` 表示自动 |
 | `KASMVNC_PREFER_BANDWIDTH` | `1` | `1` 时牺牲画质换带宽（更低质量档、更强压缩） |
+| `DOTNET_GCHeapHardLimit` / `DOTNET_gcServer` / `DOTNET_TieredPGO` | `0x10000000` / `0` / `0` | .NET 堆上限 256 MiB，关闭服务器 GC 与分层 PGO |
+| `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` | 见 `Dockerfile` | Chromium 参数：软件渲染、单渲染进程、JS 堆 256 MiB、禁止后台流量 |
 | `WEBVIEW2_USER_DATA_FOLDER` | 空 | 镜像不设置；应用应自行向 `CreateAsync` 传 `userDataFolder`（自检程序用 `Z:\data\wv2`） |
 
 自动探测只扫描 `/app` 顶层（不递归），并跳过 `createdump.exe`、`*.vshost.exe`
