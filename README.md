@@ -62,7 +62,7 @@ never pushed.
 ## Use it for your own application
 
 ```dockerfile
-FROM ghcr.io/webees/winforms-wine-runtime:2026.11.19.2
+FROM ghcr.io/webees/winforms-wine-runtime:2026.11.22.1
 COPY publish/ /app/
 ENV APP=YourApp.exe
 ```
