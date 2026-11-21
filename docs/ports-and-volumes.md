@@ -128,5 +128,5 @@ The image also passes `--disable-dev-shm-usage` so it works with the default
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` to keep shared memory in tmpfs.
 
 Start with 1 CPU / 2 GiB requested and 2 CPU / 4 GiB as the limit. An idle
-session uses 200–300 MiB, but a WebView2 page with large images, or Magick.NET
+session uses ~150 MiB, but a WebView2 page with large images, or Magick.NET
 decoding them, can multiply that.
