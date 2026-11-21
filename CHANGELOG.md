@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Lower default memory use: .NET heap capped at 256 MiB without server GC or
+  tiered PGO, WebView2 limited to one renderer process and a 256 MiB JS heap.
+  Measured idle RSS drops from 217 MiB to 150 MiB with no other regression.
+
 ## [2026.11.19.2] - 2026-11-19
 
 ### Changed
