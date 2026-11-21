@@ -47,6 +47,11 @@ ARG KASMVNC_VIDEO=1
 # Build with --build-arg WINE64_ONLY=0 if the application ships 32-bit native
 # dependencies or a 32-bit installer.
 ARG WINE64_ONLY=1
+ARG WEBVIEW2_TRIM=1
+# 1 = drop the Mesa software rasteriser (libLLVM + libgallium, ~177 MB). GDI+
+# rendering is unaffected; Direct3D and OpenGL then have no fallback driver.
+# Set to 0 when the application needs 3D.
+ARG MESA_TRIM=1
 ARG IMAGE_VERSION=dev
 ARG SOURCE_REVISION=unknown
 
@@ -89,7 +94,7 @@ RUN set -eu; \
       echo "winforms-wine-runtime supports linux/amd64 only (got $TARGETARCH)" >&2; exit 1; }; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      ca-certificates curl unzip openssl tini \
+      ca-certificates curl unzip openssl tini binutils \
       wine wine64 xvfb xauth x11-utils iproute2 \
       fontconfig fonts-wqy-microhei fonts-droid-fallback \
       libgl1 libglx-mesa0 libegl1 libgles2 libvulkan1; \
@@ -102,8 +107,17 @@ RUN set -eu; \
     printf '%s  %s\n' "$sha" /tmp/kasmvnc.deb | sha256sum -c -; \
     apt-get install -y --no-install-recommends /tmp/kasmvnc.deb; \
     rm -f /tmp/kasmvnc.deb; \
-    rm -rf /var/lib/apt/lists/*; \
     if [ "$WINE64_ONLY" = "1" ]; then rm -rf /usr/lib/*/wine/i386-windows; fi; \
+    find /usr/lib/*/wine -type f \( -name '*.dll' -o -name '*.exe' -o -name '*.drv' \
+      -o -name '*.ocx' -o -name '*.cpl' -o -name '*.acm' -o -name '*.ax' \) \
+      -print0 | xargs -0 -r -n1 -P"$(nproc)" strip --strip-all 2>/dev/null || true; \
+    apt-get purge -y --auto-remove binutils >/dev/null; \
+    if [ "$MESA_TRIM" = "1" ]; then \
+      rm -f /usr/lib/*/libLLVM*.so* /usr/lib/*/libgallium-*.so*; \
+    fi; \
+    rm -rf /usr/share/perl /usr/share/perl5 /usr/lib/*/perl; \
+    rm -rf /usr/share/doc /usr/share/man; \
+    rm -rf /var/lib/apt/lists/*; \
     srv=$(find /usr/lib -name wineserver -type f -print -quit); \
     [ -n "$srv" ] || { echo "wineserver not found" >&2; exit 1; }; \
     ln -sf "$srv" /usr/local/bin/wineserver; \
@@ -140,6 +154,20 @@ RUN set -eu; \
       exit 1; \
     }; \
     test -x /opt/webview2/msedgewebview2.exe; \
+    if [ "$WEBVIEW2_TRIM" = "1" ]; then \
+      for pak in /opt/webview2/Locales/*.pak; do \
+        case "$pak" in *en-US.pak|*zh-CN.pak) ;; *) rm -f "$pak" ;; esac; \
+      done; \
+      rm -rf /opt/webview2/WidevineCdm /opt/webview2/onnxruntime.dll \
+        /opt/webview2/learning_tools.dll /opt/webview2/notification_helper.exe \
+        /opt/webview2/telclient.dll /opt/webview2/oneauth.dll \
+        /opt/webview2/mip_core.dll /opt/webview2/mip_protection_sdk.dll \
+        /opt/webview2/elevated_tracing_service.exe \
+        /opt/webview2/dual_engine_adapter_x64.dll \
+        /opt/webview2/mspdf.dll \
+        /opt/webview2/dxcompiler.dll /opt/webview2/dxil.dll \
+        /opt/webview2/d3dcompiler_47.dll; \
+    fi; \
     rm -rf /tmp/wv
 
 COPY docker/wine-setup.sh /usr/local/bin/wine-setup.sh

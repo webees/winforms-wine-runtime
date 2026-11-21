@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The image is 1.13 GiB instead of 2.58 GiB. Wine's PE builtins are stripped
+  (450 MB), the prefix links them instead of duplicating them (596 MB),
+  WebView2 ships only the `en-US`/`zh-CN` locales and no DRM, PDF, telemetry,
+  updater or GPU compiler components, the Perl runtime is gone, and so is the
+  Mesa software rasteriser. New build
+  arguments `WEBVIEW2_TRIM` and `MESA_TRIM` (both default `1`) restore any of
+  these. Direct3D and OpenGL need `MESA_TRIM=0`.
+
 ## [2026.11.22.1] - 2026-11-22
 
 ### Changed

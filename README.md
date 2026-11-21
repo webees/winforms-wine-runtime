@@ -202,9 +202,11 @@ and never mount host paths you would not expose. See [SECURITY.md](SECURITY.md).
 | `DOTNET_SDK_DIGEST` | `sha256:1b95…` | Digest pin for the SDK image |
 | `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version runtime, see the version policy above |
 | `WEBVIEW2_SHA256` | `a6647e…` | NuGet package checksum; bump it together with `WEBVIEW2_VERSION` |
+| `WEBVIEW2_TRIM` | `1` | Drop unused WebView2 locales (keep `en-US`, `zh-CN`) and the DRM, PDF, telemetry and updater components, about 200 MB |
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC release; the pinned SHA-256 only matches 1.5.2, so overriding it requires updating the checksum |
 | `KASMVNC_VIDEO` | `1` | Install FFmpeg for the WebCodecs H.264/H.265/AV1 path |
 | `WINE64_ONLY` | `1` | Drop 32-bit Wine (`i386-windows`, `syswow64`), about 1.2 GB |
+| `MESA_TRIM` | `1` | Drop the Mesa software rasteriser (`libLLVM`, `libgallium`), about 177 MB; set to `0` for 3D/OpenGL |
 | `IMAGE_VERSION` | `dev` | `org.opencontainers.image.version` label |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` label |
 | `TARGETARCH` | `amd64` | Set by BuildKit; only `amd64` is accepted |
