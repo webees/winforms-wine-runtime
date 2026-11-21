@@ -49,7 +49,7 @@ below 90 fails.
 | Cold start | ≤ 10 s to HTTP 200 | 50 at ≤ 20 s |
 | First window | ≤ 25 s to a visible application window | 50 at ≤ 40 s |
 | Idle memory | ≤ 350 MiB per container | 50 at ≤ 600 MiB |
-| Image size | ≤ 4.5 GiB | 60 at ≤ 5.5 GiB, 30 at ≤ 6.5 GiB |
+| Image size | ≤ 2.0 GiB | 60 at ≤ 3.0 GiB, 30 at ≤ 4.0 GiB |
 | Desktop | X display answers | – |
 
 A: ≥ 90, B: ≥ 75, C: ≥ 60, D: below.
@@ -63,15 +63,15 @@ KasmVNC 1.5.2 / WebView2 135.0.3179.98, demo image:
 
 | Metric | Baseline | Notes |
 |---|---|---|
-| Image size | 2.58 GiB | `du -sbx /`, `WINE64_ONLY=1`, `KASMVNC_VIDEO=1` |
-| Cold start | ~1 s | until authenticated HTTP 200; warm page cache |
+| Image size | 1.13 GiB | `du -sbx /`, default trim flags |
+| Cold start | ~0.4 s | until authenticated HTTP 200; warm page cache |
 | First window | 2–7 s | Xvfb + Wine + first WinForms window; depends on page cache |
 | Idle memory | ~150 MiB | KasmVNC + Wine + idle self-test; the full-mark ceiling is 350 MiB |
 | Self-test | 4/4, 10–15 s | `webview2` dominates |
 | Score | 100/100 (A) | |
 
-Last verified 2026-11-22: 427 ms cold start, 2.3 s to the app window, 150 MiB
-idle RSS, 2.58 GiB image.
+Last verified 2026-11-22: 366 ms cold start, 2.3 s to the app window, 143 MiB
+idle RSS, 1.13 GiB image.
 
 ## Repository baseline
 

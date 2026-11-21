@@ -22,7 +22,7 @@ PERFECT = {
     "image": "test:1",
     "platform": "linux/amd64",
     "cpus": 8,
-    "size_bytes": int(2.6 * GIB),
+    "size_bytes": int(1.2 * GIB),
     "start_ms": 900,
     "app_ms": 2_300,
     "auth_status": 200,
@@ -90,10 +90,10 @@ class PerformanceRubricTest(unittest.TestCase):
         self.assertEqual(points(idle_rss_kb=600 * KIB_PER_MIB + 1)["idle memory"], 0)
 
     def test_image_size_bands(self) -> None:
-        self.assertEqual(points(size_bytes=int(4.5 * GIB))["image size"], 100)
-        self.assertEqual(points(size_bytes=int(4.5 * GIB) + 1)["image size"], 60)
-        self.assertEqual(points(size_bytes=int(5.5 * GIB) + 1)["image size"], 30)
-        self.assertEqual(points(size_bytes=int(6.5 * GIB) + 1)["image size"], 0)
+        self.assertEqual(points(size_bytes=2 * GIB)["image size"], 100)
+        self.assertEqual(points(size_bytes=2 * GIB + 1)["image size"], 60)
+        self.assertEqual(points(size_bytes=3 * GIB + 1)["image size"], 30)
+        self.assertEqual(points(size_bytes=4 * GIB + 1)["image size"], 0)
 
     def test_desktop(self) -> None:
         self.assertEqual(points()["desktop"], 100)

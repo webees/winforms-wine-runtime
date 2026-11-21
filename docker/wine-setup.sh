@@ -55,3 +55,14 @@ cp -f "${msvc[@]}" "${WINEPREFIX}/drive_c/windows/system32/"
 # grep without -q: reading to EOF keeps `wine` from dying on SIGPIPE, which
 # pipefail would turn into a false failure.
 wine reg query "$FONTS" | grep -F "Droid Sans Fallback" >/dev/null
+
+# wineboot copies ~580 MB of builtin DLLs into the prefix. They are byte-identical
+# to the ones in /usr/lib/.../wine/x86_64-windows, so link instead of duplicating.
+builtin="$(dirname "$(find /usr/lib -name wineserver -type f -print -quit)")/x86_64-windows"
+for dll in "$WINEPREFIX"/drive_c/windows/system32/*; do
+  name="${dll##*/}"
+  if [ -f "$builtin/$name" ] && cmp -s "$dll" "$builtin/$name"; then
+    rm -f "$dll"
+    ln -s "$builtin/$name" "$dll"
+  fi
+done

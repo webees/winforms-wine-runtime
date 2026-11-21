@@ -82,9 +82,11 @@ docker run --rm -p 6901:6901 -e ENABLE_VNC=1 -e VNC_PASSWORD=change-me your-app
 | `DOTNET_SDK_DIGEST` | `sha256:1b95…` | SDK 镜像 digest 固定 |
 | `WEBVIEW2_VERSION` | `135.0.3179.98` | Fixed Version 运行时，版本上限见「WebView2 版本策略」 |
 | `WEBVIEW2_SHA256` | `a6647e…` | NuGet 包校验值；升级 `WEBVIEW2_VERSION` 时同步更新 |
+| `WEBVIEW2_TRIM` | `1` | 删除未使用的 WebView2 语言包（保留 `en-US`、`zh-CN`）与 DRM、PDF、遥测、更新组件，约 200 MB |
 | `KASMVNC_VERSION` | `1.5.2` | KasmVNC 版本；SHA-256 只对 1.5.2 有效，覆盖版本需同步改校验值 |
 | `KASMVNC_VIDEO` | `1` | 安装 FFmpeg，提供 H.264/H.265/AV1 编码 |
 | `WINE64_ONLY` | `1` | 去掉 32 位 Wine（`i386-windows`、`syswow64`），约 1.2 GB |
+| `MESA_TRIM` | `1` | 去掉 Mesa 软件光栅器（`libLLVM`、`libgallium`），约 177 MB；需要 3D/OpenGL 时设为 `0` |
 | `IMAGE_VERSION` | `dev` | `org.opencontainers.image.version` 标签 |
 | `SOURCE_REVISION` | `unknown` | `org.opencontainers.image.revision` 标签 |
 | `TARGETARCH` | `amd64` | 由 BuildKit 注入；只接受 `amd64` |

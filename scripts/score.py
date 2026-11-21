@@ -70,7 +70,7 @@ def score(report: dict) -> tuple[int, list[tuple[str, int, int, str]]]:
 
     size = int(num(report.get("size_bytes"), 10**13))
     add("image size",
-        band(size, [(4.5 * GIB, 100), (5.5 * GIB, 60), (6.5 * GIB, 30)]),
+        band(size, [(2 * GIB, 100), (3 * GIB, 60), (4 * GIB, 30)]),
         100, f"{size / GIB:.2f} GiB")
 
     x_ok = report.get("x_display") == "yes"

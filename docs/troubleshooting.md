@@ -121,6 +121,13 @@ runtime inside the container, which this image intentionally does not install.
 The default image is 64-bit Wine only. Rebuild with
 `--build-arg WINE64_ONLY=0` when you need `syswow64`.
 
+## 3D, OpenGL or inline PDFs inside the app
+
+The default image drops the Mesa software rasteriser and WebView2's PDF viewer
+and GPU compiler. GDI+ WinForms rendering and WebGL are unaffected. Rebuild with
+`--build-arg MESA_TRIM=0 --build-arg WEBVIEW2_TRIM=0` if the application renders
+Direct3D/OpenGL content or shows PDFs inline.
+
 ## Diagnostics
 
 ```bash

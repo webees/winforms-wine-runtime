@@ -117,7 +117,7 @@ jobs:
           base=$(docker run --rm --entrypoint du "$IMAGE:ci" -sbx / | awk '{print $1}')
           printf 'base=%.2f GiB\n' "$(echo "$base" | awk '{print $1/1073741824}')"
           # Guard against accidental inclusion of i386 Wine or a duplicated runtime.
-          test "$base" -lt 4831838208 || { echo "::error::base image exceeds 4.5 GiB"; exit 1; }
+          test "$base" -lt 2147483648 || { echo "::error::base image exceeds 2 GiB"; exit 1; }
 
       - name: runtime ships no application
         run: |

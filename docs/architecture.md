@@ -99,6 +99,14 @@ layer finishes corrupts the prefix in a way that only shows up later as
 **`WINE64_ONLY=1` by default.** Removing `i386-windows` and `syswow64` saves
 about 1.2 GB and does not affect `win-x64` .NET applications.
 
+**Size.** `binutils` strips PE debug sections from Wine's builtins in the same
+layer that installs them (450 MB) and is then purged. `wine-setup.sh` replaces
+the byte-identical DLL copies `wineboot` writes into the prefix with symlinks to
+`/usr/lib/.../x86_64-windows` (596 MB). `WEBVIEW2_TRIM=1` keeps only the
+`en-US`/`zh-CN` locales plus no DRM, PDF, telemetry or updater binaries;
+`MESA_TRIM=1` drops the software rasteriser. Both are build arguments that
+restore the removed files.
+
 ## Runtime model
 
 Each container is one desktop session. The WebView2 user-data folder holds a
