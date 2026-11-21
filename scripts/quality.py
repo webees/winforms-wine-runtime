@@ -33,7 +33,7 @@ PY_NAME = re.compile(r"^[a-z][a-z0-9_]*\.py$")
 TEMPLATE_NAME = re.compile(r"^[a-z][a-z0-9_]*\.yml$")
 FIXED_NAMES = {
     "README.md", "README.zh-CN.md", "CHANGELOG.md", "CONTRIBUTING.md",
-    "CODE_OF_CONDUCT.md", "SECURITY.md", "LICENSE", "CODEOWNERS",
+    "SECURITY.md", "LICENSE", "CODEOWNERS",
     "THIRD-PARTY-NOTICES.md", "PULL_REQUEST_TEMPLATE.md", "Dockerfile",
     "Makefile",
 }
@@ -155,7 +155,7 @@ def long_lines(paths: list[Path], limit: int) -> list[str]:
 def hygiene() -> Dimension:
     dim = Dimension("hygiene")
     required = ["README.md", "README.zh-CN.md", "LICENSE", "SECURITY.md",
-                "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "CHANGELOG.md",
+                "CONTRIBUTING.md", "CHANGELOG.md",
                 "THIRD-PARTY-NOTICES.md", ".gitignore", ".dockerignore",
                 ".editorconfig", "Makefile"]
     missing = [name for name in required if not (ROOT / name).is_file()]

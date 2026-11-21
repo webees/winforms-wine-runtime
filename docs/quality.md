@@ -49,7 +49,7 @@ so reviewers can read the intent without reading Python.
 
 | Check | Passes when |
 |---|---|
-| `hygiene.files` | README (both languages), LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG, THIRD-PARTY-NOTICES, .gitignore, .dockerignore, .editorconfig and Makefile exist |
+| `hygiene.files` | README (both languages), LICENSE, SECURITY, CONTRIBUTING, CHANGELOG, THIRD-PARTY-NOTICES, .gitignore, .dockerignore, .editorconfig and Makefile exist |
 | `hygiene.artifacts` | No screenshots, SARIF files or bench reports are committed at the repository root |
 | `hygiene.markers` | No TODO, FIXME, XXX or HACK in Markdown, shell, Python or workflows |
 | `hygiene.whitespace` | LF endings, final newline, no trailing spaces |
