@@ -17,7 +17,7 @@
   <ItemGroup>
     <!-- Only the three stacks this image promises to support. -->
     <PackageReference Include="SunnyUI" Version="3.9.9" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4370.26" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="15.1.0" />
   </ItemGroup>
 </Project>
